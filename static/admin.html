@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ-панель - PC Place</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary: #8b5cf6; --primary-dark: #7c3aed; --secondary: #06b6d4;
+            --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
+            --bg: #0a0a0f; --bg-card: #16161f; --bg-elevated: #1e1e2a;
+            --text: #f4f4f5; --text-muted: #a1a1aa; --border: #27272a;
+        }
+        body { font-family: 'Space Grotesk', sans-serif; background: var(--bg); color: var(--text); }
+        .loading-spinner { width: 24px; height: 24px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-up { animation: fadeUp 0.5s ease forwards; }
+    </style>
+</head>
+<body>
+    <div id="root"><div style="display:flex;justify-content:center;align-items:center;height:100vh"><div class="loading-spinner" style="width:48px;height:48px"></div></div></div>
+    <script type="text/babel">
+        const { useState, useEffect, useContext, createContext } = React;
+        const API = '/api/v1';
+        const AuthCtx = createContext(null);
+
+        const api = {
+            token: localStorage.getItem('token'),
+            setToken(t) { this.token = t; t ? localStorage.setItem('token', t) : localStorage.removeItem('token'); },
+            async req(url, opt = {}) {
+                const headers = { 'Content-Type': 'application/json', ...opt.headers };
+                if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
+                const res = await fetch(`${API}${url}`, { ...opt, headers });
+                const data = await res.json();
+                if (!res.ok) {
+                    const errorMsg = data.detail?.error?.message || data.detail?.message || data.message || 'Error';
+                    throw new Error(errorMsg);
+                }
+                return data;
+            },
+            get: (u) => api.req(u),
+            post: (u, b) => api.req(u, { method: 'POST', body: JSON.stringify(b) }),
+            put: (u, b) => api.req(u, { method: 'PUT', body: JSON.stringify(b) }),
+            del: (u) => api.req(u, { method: 'DELETE' }),
+        };
+
+        const Btn = ({ children, variant = 'primary', size = 'md', loading, disabled, onClick, style }) => {
+            const vars = {
+                primary: { background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))', color: '#fff', border: 'none' },
+                secondary: { background: 'var(--bg-elevated)', color: 'var(--text)', border: '1px solid var(--border)' },
+                danger: { background: 'var(--danger)', color: '#fff', border: 'none' },
+            };
+            const sizes = { sm: { padding: '8px 16px', fontSize: '13px' }, md: { padding: '12px 24px', fontSize: '14px' } };
+            return <button onClick={onClick} disabled={disabled || loading} style={{ ...vars[variant], ...sizes[size], borderRadius: '12px', fontWeight: '600', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1, display: 'inline-flex', alignItems: 'center', gap: '8px', transition: 'all 0.3s', fontFamily: 'inherit', ...style }}>{loading && <span className="loading-spinner" style={{width:16,height:16}} />}{children}</button>;
+        };
+
+        const Card = ({ children, style }) => (
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '16px', ...style }}>{children}</div>
+        );
+
+        const Badge = ({ children, variant = 'default' }) => {
+            const vars = { 
+                default: { bg: 'var(--border)', color: 'var(--text-muted)' }, 
+                primary: { bg: 'rgba(139,92,246,0.2)', color: 'var(--primary)' }, 
+                success: { bg: 'rgba(16,185,129,0.2)', color: 'var(--success)' }, 
+                warning: { bg: 'rgba(245,158,11,0.2)', color: 'var(--warning)' }, 
+                danger: { bg: 'rgba(239,68,68,0.2)', color: 'var(--danger)' },
+                info: { bg: 'rgba(59,130,246,0.2)', color: 'rgb(59,130,246)' }
+            };
+            const variantStyle = vars[variant] || vars.default;
+            return <span style={{ background: variantStyle.bg, color: variantStyle.color, padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>{children}</span>;
+        };
+
+        const Modal = ({ open, onClose, title, children }) => {
+            if (!open) return null;
+            return (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                    <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }} onClick={onClose} />
+                    <Card className="fade-up" style={{ position: 'relative', width: '100%', maxWidth: '480px', maxHeight: '90vh', overflow: 'auto' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '24px', borderBottom: '1px solid var(--border)' }}>
+                            <h2 style={{ fontSize: '20px', fontWeight: '600' }}>{title}</h2>
+                            <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '24px' }}>×</button>
+                        </div>
+                        <div style={{ padding: '24px' }}>{children}</div>
+                    </Card>
+                </div>
+            );
+        };
+
+        const Icons = {
+            grid: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>,
+            users: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+            package: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M16.5 9.4l-9-5.19M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/></svg>,
+            cart: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>,
+            chart: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
+            edit: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+            trash: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>,
+            message: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
+            eye: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
+            eyeOff: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>,
+            logout: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>,
+        };
+
+        const AdminDashboard = () => {
+            const [stats, setStats] = useState(null);
+            const [loading, setLoading] = useState(true);
+            useEffect(() => { api.get('/admin/dashboard').then(d => { setStats(d); setLoading(false); }).catch(console.error); }, []);
+            if (loading) return <div style={{ display: 'flex', justifyContent: 'center', padding: '80px' }}><span className="loading-spinner" style={{ width: 48, height: 48 }} /></div>;
+            const cards = [
+                { label: 'Пользователей', value: stats?.total_users || 0 },
+                { label: 'Товаров', value: stats?.total_items || 0 },
+                { label: 'Заказов', value: stats?.total_orders || 0 },
+                { label: 'Выручка', value: `$${(stats?.total_revenue || 0).toFixed(2)}` }
+            ];
+            return (
+                <div>
+                    <h1 style={{ fontSize: '32px', fontWeight: '700', marginBottom: '40px' }}>Панель управления</h1>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '24px' }}>
+                        {cards.map((c, i) => <Card key={i} className="fade-up" style={{ padding: '28px', animationDelay: `${i * 0.1}s` }}><p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '8px' }}>{c.label}</p><p style={{ fontSize: '32px', fontWeight: '700' }}>{c.value}</p></Card>)}
+                    </div>
+                </div>
+            );
+        };
+
+        const CreateUserForm = ({ onSave, onCancel }) => {
+            const [email, setEmail] = useState('');
+            const [username, setUsername] = useState('');
+            const [password, setPassword] = useState('');
+            const [role, setRole] = useState('user');
+            const [isActive, setIsActive] = useState(true);
+            const [loading, setLoading] = useState(false);
+            const handleSubmit = async e => { e.preventDefault(); setLoading(true); await onSave({ email, username, password, role, is_active: isActive }); setLoading(false); };
+            return (
+                <form onSubmit={handleSubmit}>
+                    <div style={{ marginBottom: '20px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>Email</label>
+                        <input type="email" value={email} onChange={e => setEmail(e.target.value)} required style={{ width: '100%', padding: '12px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text)', fontSize: '14px', fontFamily: 'inherit' }} />
+                    </div>
+                    <div style={{ marginBottom: '20px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>Имя пользователя</label>
+                        <input type="text" value={username} onChange={e => setUsername(e.target.value)} required style={{ width: '100%', padding: '12px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text)', fontSize: '14px', fontFamily: 'inherit' }} />
+                    </div>
+                    <div style={{ marginBottom: '20px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>Пароль</label>
+                        <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} style={{ width: '100%', padding: '12px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text)', fontSize: '14px', fontFamily: 'inherit' }} />
+                    </div>
+                    <div style={{ marginBottom: '20px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>Роль</label>
+                        <select value={role} onChange={e => setRole(e.target.value)} style={{ width: '100%', padding: '12px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text)', fontSize: '14px', fontFamily: 'inherit' }}>
+                            <option value="user">Пользователь</option>
+                            <option value="seller">Продавец</option>
+                            <option value="support">Поддержка</option>
+                            <option value="admin">Админ</option>
+                        </select>
+                    </div>
+                    <div style={{ marginBottom: '28px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                            <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} />
+                            <span style={{ fontSize: '14px' }}>Активен</span>
+                        </label>
+                    </div>
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                        <Btn variant="secondary" onClick={onCancel}>Отмена</Btn>
+                        <Btn type="submit" loading={loading}>Создать</Btn>
+                    </div>
+                </form>
+            );
+        };
+
+        const EditUserForm = ({ user, onSave, onCancel }) => {
+            const [role, setRole] = useState(user.role);
+            const [isActive, setIsActive] = useState(user.is_active);
+            const [loading, setLoading] = useState(false);
+            const handleSubmit = async e => { e.preventDefault(); setLoading(true); await onSave({ role, is_active: isActive }); setLoading(false); };
+            return (
+                <form onSubmit={handleSubmit}>
+                    <div style={{ marginBottom: '20px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>Роль</label>
+                        <select value={role} onChange={e => setRole(e.target.value)} style={{ width: '100%', padding: '12px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text)', fontSize: '14px', fontFamily: 'inherit' }}>
+                            <option value="user">Пользователь</option>
+                            <option value="seller">Продавец</option>
+                            <option value="support">Поддержка</option>
+                            <option value="admin">Админ</option>
+                        </select>
+                    </div>
+                    <div style={{ marginBottom: '28px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                            <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} />
+                            <span style={{ fontSize: '14px' }}>Активен</span>
+                        </label>
+                    </div>
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                        <Btn variant="secondary" onClick={onCancel}>Отмена</Btn>
+                        <Btn type="submit" loading={loading}>Сохранить</Btn>
+                    </div>
+                </form>
+            );
+        };
+
+        const AdminUsers = () => {
+            const [users, setUsers] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [editUser, setEditUser] = useState(null);
+            const [createUser, setCreateUser] = useState(false);
+            useEffect(() => { loadUsers(); }, []);
+            const loadUsers = () => api.get('/admin/users').then(d => { setUsers(d); setLoading(false); }).catch(console.error);
+            const createNewUser = async (data) => { await api.post('/admin/users', data); loadUsers(); setCreateUser(false); };
+            const updateUser = async (id, data) => { await api.put(`/admin/users/${id}`, data); loadUsers(); setEditUser(null); };
+            const deleteUser = async id => { if (!confirm('Удалить?')) return; await api.del(`/admin/users/${id}`); loadUsers(); };
+            const roleColors = { admin: 'danger', seller: 'warning', support: 'info', user: 'default' };
+            return (
+                <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
+                        <h1 style={{ fontSize: '32px', fontWeight: '700' }}>Пользователи</h1>
+                        <Btn onClick={() => setCreateUser(true)}>+ Создать пользователя</Btn>
+                    </div>
+                    {loading ? <div style={{ display: 'flex', justifyContent: 'center', padding: '80px' }}><span className="loading-spinner" style={{ width: 48, height: 48 }} /></div> : (
+                        <Card style={{ overflow: 'hidden' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead><tr style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border)' }}>{['ID', 'Имя', 'Email', 'Роль', 'Статус', 'Действия'].map(h => <th key={h} style={{ padding: '16px', textAlign: 'left', fontWeight: '600', fontSize: '13px', color: 'var(--text-muted)' }}>{h}</th>)}</tr></thead>
+                                <tbody>{users.map(u => <tr key={u.id} style={{ borderBottom: '1px solid var(--border)' }}><td style={{ padding: '16px', fontSize: '14px' }}>{u.id}</td><td style={{ padding: '16px', fontSize: '14px', fontWeight: '500' }}>{u.username}</td><td style={{ padding: '16px', fontSize: '14px', color: 'var(--text-muted)' }}>{u.email}</td><td style={{ padding: '16px' }}><Badge variant={roleColors[u.role]}>{u.role}</Badge></td><td style={{ padding: '16px' }}><Badge variant={u.is_active ? 'success' : 'danger'}>{u.is_active ? 'Активен' : 'Заблокирован'}</Badge></td><td style={{ padding: '16px' }}><div style={{ display: 'flex', gap: '8px' }}><button onClick={() => setEditUser(u)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', padding: '4px' }}>{Icons.edit}</button><button onClick={() => deleteUser(u.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', padding: '4px' }}>{Icons.trash}</button></div></td></tr>)}</tbody>
+                            </table>
+                        </Card>
+                    )}
+                    <Modal open={!!editUser} onClose={() => setEditUser(null)} title="Редактировать">
+                        {editUser && <EditUserForm user={editUser} onSave={data => updateUser(editUser.id, data)} onCancel={() => setEditUser(null)} />}
+                    </Modal>
+                    <Modal open={createUser} onClose={() => setCreateUser(false)} title="Создать пользователя">
+                        <CreateUserForm onSave={createNewUser} onCancel={() => setCreateUser(false)} />
+                    </Modal>
+                </div>
+            );
+        };
+
+        const CreateItemForm = ({ onSave, onCancel }) => {
+            const [name, setName] = useState('');
+            const [description, setDescription] = useState('');
+            const [price, setPrice] = useState('');
+            const [quantity, setQuantity] = useState(1);
+            const [categoryId, setCategoryId] = useState('');
+            const [imageUrl, setImageUrl] = useState('');
+            const [imageFile, setImageFile] = useState(null);
+            const [uploading, setUploading] = useState(false);
+            const [categories, setCategories] = useState([]);
+            const [loading, setLoading] = useState(false);
+            useEffect(() => { api.get('/categories').then(d => { setCategories(d); if (d.length > 0) setCategoryId(d[0].id); }).catch(console.error); }, []);
+            const handleFileChange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                if (!file.type.startsWith('image/')) { alert('Пожалуйста, выберите изображение'); return; }
+                if (file.size > 10 * 1024 * 1024) { alert('Файл слишком большой (максимум 10MB)'); return; }
+                setImageFile(file);
+                setUploading(true);
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    const response = await fetch('/api/v1/files/upload/image?folder=items', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+                        body: formData
+                    });
+                    if (!response.ok) throw new Error('Ошибка загрузки');
+                    const data = await response.json();
+                    setImageUrl(data.url);
+                } catch (err) { console.error('Upload error:', err); alert('Ошибка загрузки изображения'); }
+                setUploading(false);
+            };
+            const handleSubmit = async e => { e.preventDefault(); setLoading(true); await onSave({ name, description: description || null, price: parseFloat(price), quantity: parseInt(quantity), category_id: parseInt(categoryId), image_url: imageUrl || null }); setLoading(false); };
+            return (
+                <form onSubmit={handleSubmit}>
+                    <div style={{ marginBottom: '20px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>Название</label>
+                        <input type="text" value={name} onChange={e => setName(e.target.value)} required style={{ width: '100%', padding: '12px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text)', fontSize: '14px', fontFamily: 'inherit' }} />
+                    </div>
+                    <div style={{ marginBottom: '20px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>Описание</label>
+                        <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} style={{ width: '100%', padding: '12px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text)', fontSize: '14px', fontFamily: 'inherit', resize: 'vertical' }} />
+                    </div>
+                    <div style={{ marginBottom: '20px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>Цена</label>
+                        <input type="number" step="0.01" min="0.01" value={price} onChange={e => setPrice(e.target.value)} required style={{ width: '100%', padding: '12px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text)', fontSize: '14px', fontFamily: 'inherit' }} />
+                    </div>
+                    <div style={{ marginBottom: '20px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>Количество</label>
+                        <input type="number" min="0" value={quantity} onChange={e => setQuantity(e.target.value)} required style={{ width: '100%', padding: '12px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text)', fontSize: '14px', fontFamily: 'inherit' }} />
+                    </div>
+                    <div style={{ marginBottom: '20px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>Категория</label>
+                        <select value={categoryId} onChange={e => setCategoryId(e.target.value)} required style={{ width: '100%', padding: '12px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text)', fontSize: '14px', fontFamily: 'inherit' }}>
+                            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                    </div>
+                    <div style={{ marginBottom: '20px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>Изображение</label>
+                        <input type="file" accept="image/*" onChange={handleFileChange} disabled={uploading} style={{ width: '100%', padding: '12px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text)', fontSize: '14px', fontFamily: 'inherit' }} />
+                        {uploading && <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>Загрузка...</p>}
+                        {imageUrl && <p style={{ fontSize: '12px', color: 'var(--success)', marginTop: '8px' }}>✓ Изображение загружено</p>}
+                    </div>
+                    <div style={{ marginBottom: '28px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>Или URL изображения</label>
+                        <input type="url" value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://..." style={{ width: '100%', padding: '12px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text)', fontSize: '14px', fontFamily: 'inherit' }} />
+                    </div>
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                        <Btn variant="secondary" onClick={onCancel}>Отмена</Btn>
+                        <Btn type="submit" loading={loading}>Создать</Btn>
+                    </div>
+                </form>
+            );
+        };
+
+        const EditItemForm = ({ item, onSave, onCancel }) => {
+            const [name, setName] = useState(item?.name || '');
+            const [description, setDescription] = useState(item?.description || '');
+            const [price, setPrice] = useState(item?.price || '');
+            const [quantity, setQuantity] = useState(item?.quantity || 1);
+            const [categoryId, setCategoryId] = useState(item?.category_id || '');
+            const [imageUrl, setImageUrl] = useState(item?.image_url || '');
+            const [imageFile, setImageFile] = useState(null);
+            const [uploading, setUploading] = useState(false);
+            const [categories, setCategories] = useState([]);
+            const [loading, setLoading] = useState(false);
+            useEffect(() => { api.get('/categories').then(d => { setCategories(d); if (!item?.category_id && d.length > 0) setCategoryId(d[0].id); else if (item?.category_id) setCategoryId(item.category_id); }).catch(console.error); }, [item]);
+            const handleFileChange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                if (!file.type.startsWith('image/')) { alert('Пожалуйста, выберите изображение'); return; }
+                if (file.size > 10 * 1024 * 1024) { alert('Файл слишком большой (максимум 10MB)'); return; }
+                setImageFile(file);
+                setUploading(true);
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    const response = await fetch('/api/v1/files/upload/image?folder=items', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+                        body: formData
+                    });
+                    if (!response.ok) throw new Error('Ошибка загрузки');
+                    const data = await response.json();
+                    setImageUrl(data.url);
+                } catch (err) { console.error('Upload error:', err); alert('Ошибка загрузки изображения'); }
+                setUploading(false);
+            };
+            const handleSubmit = async e => { e.preventDefault(); setLoading(true); await onSave({ name, description: description || null, price: parseFloat(price), quantity: parseInt(quantity), category_id: parseInt(categoryId), image_url: imageUrl || null }); setLoading(false); };
+            return (
+                <form onSubmit={handleSubmit}>
+                    <div style={{ marginBottom: '20px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>Название</label>
+                        <input type="text" value={name} onChange={e => setName(e.target.value)} required style={{ width: '100%', padding: '12px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text)', fontSize: '14px', fontFamily: 'inherit' }} />
+                    </div>
+                    <div style={{ marginBottom: '20px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>Описание</label>
+                        <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} style={{ width: '100%', padding: '12px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text)', fontSize: '14px', fontFamily: 'inherit', resize: 'vertical' }} />
+                    </div>
+                    <div style={{ marginBottom: '20px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>Цена</label>
+                        <input type="number" step="0.01" min="0.01" value={price} onChange={e => setPrice(e.target.value)} required style={{ width: '100%', padding: '12px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text)', fontSize: '14px', fontFamily: 'inherit' }} />
+                    </div>
+                    <div style={{ marginBottom: '20px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>Количество</label>
+                        <input type="number" min="0" value={quantity} onChange={e => setQuantity(e.target.value)} required style={{ width: '100%', padding: '12px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text)', fontSize: '14px', fontFamily: 'inherit' }} />
+                    </div>
+                    <div style={{ marginBottom: '20px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>Категория</label>
+                        <select value={categoryId} onChange={e => setCategoryId(e.target.value)} required style={{ width: '100%', padding: '12px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text)', fontSize: '14px', fontFamily: 'inherit' }}>
+                            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                    </div>
+                    <div style={{ marginBottom: '20px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>Изображение</label>
+                        <input type="file" accept="image/*" onChange={handleFileChange} disabled={uploading} style={{ width: '100%', padding: '12px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text)', fontSize: '14px', fontFamily: 'inherit' }} />
+                        {uploading && <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>Загрузка...</p>}
+                        {imageUrl && <p style={{ fontSize: '12px', color: 'var(--success)', marginTop: '8px' }}>✓ Изображение загружено</p>}
+                    </div>
+                    <div style={{ marginBottom: '28px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>Или URL изображения</label>
+                        <input type="url" value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://..." style={{ width: '100%', padding: '12px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text)', fontSize: '14px', fontFamily: 'inherit' }} />
+                    </div>
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                        <Btn variant="secondary" onClick={onCancel}>Отмена</Btn>
+                        <Btn type="submit" loading={loading}>Сохранить</Btn>
+                    </div>
+                </form>
+            );
+        };
+
+        const AdminItems = () => {
+            const [items, setItems] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [createItem, setCreateItem] = useState(false);
+            const [editItem, setEditItem] = useState(null);
+            useEffect(() => { api.get('/admin/items?limit=50').then(d => { setItems(d.items); setLoading(false); }).catch(console.error); }, []);
+            const createNewItem = async (data) => { await api.post('/admin/items', data); api.get('/admin/items?limit=50').then(d => { setItems(d.items); setCreateItem(false); }).catch(console.error); };
+            const updateItem = async (id, data) => { await api.put(`/admin/items/${id}`, data); api.get('/admin/items?limit=50').then(d => { setItems(d.items); setEditItem(null); }).catch(console.error); };
+            const deleteItem = async id => { if (!confirm('Удалить?')) return; await api.del(`/admin/items/${id}`); setItems(items.filter(i => i.id !== id)); };
+            const toggleActive = async item => { await api.put(`/admin/items/${item.id}`, { is_active: !item.is_active }); setItems(items.map(i => i.id === item.id ? { ...i, is_active: !i.is_active } : i)); };
+            return (
+                <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
+                        <h1 style={{ fontSize: '32px', fontWeight: '700' }}>Товары</h1>
+                        <Btn onClick={() => setCreateItem(true)}>+ Создать товар</Btn>
+                    </div>
+                    {loading ? <div style={{ display: 'flex', justifyContent: 'center', padding: '80px' }}><span className="loading-spinner" style={{ width: 48, height: 48 }} /></div> : (
+                        <Card style={{ overflow: 'hidden' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead><tr style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border)' }}>{['ID', 'Название', 'Цена', 'Кол-во', 'Статус', 'Действия'].map(h => <th key={h} style={{ padding: '16px', textAlign: 'left', fontWeight: '600', fontSize: '13px', color: 'var(--text-muted)' }}>{h}</th>)}</tr></thead>
+                                <tbody>{items.map(i => <tr key={i.id} style={{ borderBottom: '1px solid var(--border)' }}><td style={{ padding: '16px', fontSize: '14px' }}>{i.id}</td><td style={{ padding: '16px', fontSize: '14px', fontWeight: '500', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{i.name}</td><td style={{ padding: '16px', fontSize: '14px', fontFamily: 'JetBrains Mono' }}>${i.price.toFixed(2)}</td><td style={{ padding: '16px', fontSize: '14px' }}>{i.quantity}</td><td style={{ padding: '16px' }}><Badge variant={i.is_active ? 'success' : 'danger'}>{i.is_active ? 'Активен' : 'Скрыт'}</Badge></td><td style={{ padding: '16px' }}><div style={{ display: 'flex', gap: '8px' }}><button onClick={() => setEditItem(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', padding: '4px' }} title="Редактировать">{Icons.edit}</button><button onClick={() => toggleActive(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: i.is_active ? 'var(--warning)' : 'var(--success)', padding: '4px' }} title={i.is_active ? 'Деактивировать' : 'Активировать'}>{i.is_active ? Icons.eyeOff : Icons.eye}</button><button onClick={() => deleteItem(i.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', padding: '4px' }} title="Удалить">{Icons.trash}</button></div></td></tr>)}</tbody>
+                            </table>
+                        </Card>
+                    )}
+                    <Modal open={createItem} onClose={() => setCreateItem(false)} title="Создать товар">
+                        <CreateItemForm onSave={createNewItem} onCancel={() => setCreateItem(false)} />
+                    </Modal>
+                    <Modal open={!!editItem} onClose={() => setEditItem(null)} title="Редактировать товар">
+                        {editItem && <EditItemForm item={editItem} onSave={data => updateItem(editItem.id, data)} onCancel={() => setEditItem(null)} />}
+                    </Modal>
+                </div>
+            );
+        };
+
+        const AdminOrders = () => {
+            const { user } = useContext(AuthCtx);
+            const [orders, setOrders] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [selectedOrder, setSelectedOrder] = useState(null);
+            const [orderMessages, setOrderMessages] = useState([]);
+            const [chatInput, setChatInput] = useState('');
+            const [chatLoading, setChatLoading] = useState(false);
+
+            const loadOrders = async () => {
+                try {
+                    const d = await api.get('/admin/orders?limit=50');
+                    setOrders(d.orders || []);
+                    setLoading(false);
+                } catch (e) {
+                    console.error('Failed to load orders:', e);
+                    setLoading(false);
+                }
+            };
+
+            useEffect(() => {
+                loadOrders();
+                const interval = setInterval(loadOrders, 5000);
+                return () => clearInterval(interval);
+            }, []);
+
+            const statusLabels = { 
+                pending: 'Ожидает оплаты', 
+                paid: 'Оплачен', 
+                shipped: 'Отправлен', 
+                delivered: 'Доставлен', 
+                cancelled: 'Отменен', 
+                returned: 'Возвращен' 
+            };
+
+            const handleStatusChange = async (orderId, newStatus) => {
+                try {
+                    await api.put(`/admin/orders/${orderId}/status`, { status: newStatus });
+                    setOrders(orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+                } catch (e) {
+                    console.error('Failed to update status:', e);
+                    alert('Ошибка при обновлении статуса');
+                }
+            };
+
+            const deleteOrder = async (id) => {
+                if (!confirm('Удалить заказ? Это действие нельзя отменить.')) return;
+                try {
+                    await api.del(`/admin/orders/${id}`);
+                    setOrders(orders.filter(o => o.id !== id));
+                } catch (e) {
+                    console.error(e);
+                }
+            };
+
+            return (
+                <div>
+                    <h1 style={{ fontSize: '32px', fontWeight: '700', marginBottom: '40px' }}>Заказы</h1>
+                    {loading ? (
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '80px' }}>
+                            <span className="loading-spinner" style={{ width: 48, height: 48 }} />
+                        </div>
+                    ) : (
+                        <Card style={{ overflow: 'hidden' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead>
+                                    <tr style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border)' }}>
+                                        {['ID', 'User ID', 'Сумма', 'Статус', 'Дата', 'Действия'].map(h => (
+                                            <th key={h} style={{ padding: '16px', textAlign: 'left', fontWeight: '600', fontSize: '13px', color: 'var(--text-muted)' }}>{h}</th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {orders.map(o => (
+                                        <tr key={o.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                                            <td style={{ padding: '16px', fontSize: '14px' }}>#{o.id}</td>
+                                            <td style={{ padding: '16px', fontSize: '14px' }}>{o.user_id}</td>
+                                            <td style={{ padding: '16px', fontSize: '14px', fontWeight: '600', fontFamily: 'JetBrains Mono' }}>
+                                                ${o.total_price?.toFixed(2)}
+                                            </td>
+                                            <td style={{ padding: '16px' }}>
+                                                <select
+                                                    value={o.status}
+                                                    onChange={(e) => handleStatusChange(o.id, e.target.value)}
+                                                    style={{ padding: '8px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: '8px' }}
+                                                >
+                                                    {Object.keys(statusLabels).map(status => (
+                                                        <option key={status} value={status}>{statusLabels[status]}</option>
+                                                    ))}
+                                                </select>
+                                            </td>
+                                            <td style={{ padding: '16px', fontSize: '14px', color: 'var(--text-muted)' }}>
+                                                {new Date(o.created_at).toLocaleDateString('ru-RU')}
+                                            </td>
+                                            <td style={{ padding: '16px' }}>
+                                                <button onClick={() => deleteOrder(o.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', padding: '4px' }}>
+                                                    {Icons.trash}
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </Card>
+                    )}
+                </div>
+            );
+        };
+
+        const AdminReports = () => {
+            const [activeTab, setActiveTab] = useState('users');
+            const [usersReport, setUsersReport] = useState(null);
+            const [itemsReport, setItemsReport] = useState(null);
+            const [categoriesReport, setCategoriesReport] = useState(null);
+            const [salesReport, setSalesReport] = useState(null);
+            const [loading, setLoading] = useState(false);
+            const loadReport = async (type) => {
+                setLoading(true);
+                try {
+                    const data = await api.get(`/admin/reports/${type}`);
+                    if (type === 'users') setUsersReport(data);
+                    else if (type === 'items') setItemsReport(data);
+                    else if (type === 'categories') setCategoriesReport(data);
+                    else if (type === 'sales') setSalesReport(data);
+                } catch (e) { console.error('Failed to load report:', e); }
+                setLoading(false);
+            };
+            useEffect(() => { loadReport(activeTab); }, [activeTab]);
+            const tabs = [{ id: 'users', label: 'Пользователи' }, { id: 'items', label: 'Товары' }, { id: 'categories', label: 'Категории' }, { id: 'sales', label: 'Продажи' }];
+            return (
+                <div>
+                    <h1 style={{ fontSize: '32px', fontWeight: '700', marginBottom: '32px' }}>Отчеты</h1>
+                    <div style={{ display: 'flex', gap: '12px', marginBottom: '32px', borderBottom: '1px solid var(--border)' }}>
+                        {tabs.map(tab => <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ padding: '12px 24px', background: 'none', border: 'none', borderBottom: activeTab === tab.id ? '2px solid var(--primary)' : '2px solid transparent', color: activeTab === tab.id ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', fontWeight: activeTab === tab.id ? '600' : '400', fontSize: '15px', fontFamily: 'inherit', transition: 'all 0.3s' }}>{tab.label}</button>)}
+                    </div>
+                    {loading ? <div style={{ display: 'flex', justifyContent: 'center', padding: '80px' }}><span className="loading-spinner" style={{ width: 48, height: 48 }} /></div> : (
+                        <>
+                            {activeTab === 'users' && usersReport && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '24px' }}><Card style={{ padding: '24px' }}><p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '8px' }}>Активных пользователей</p><p style={{ fontSize: '32px', fontWeight: '700' }}>{usersReport.active_users}</p></Card><Card style={{ padding: '24px' }}><p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '8px' }}>Новых за месяц</p><p style={{ fontSize: '32px', fontWeight: '700' }}>{usersReport.new_users_this_month}</p></Card><Card style={{ padding: '24px' }}><p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '8px' }}>Всего пользователей</p><p style={{ fontSize: '32px', fontWeight: '700' }}>{usersReport.total_users}</p></Card></div>}
+                            {activeTab === 'items' && itemsReport && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '24px' }}><Card style={{ padding: '24px' }}><p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '8px' }}>Всего товаров</p><p style={{ fontSize: '32px', fontWeight: '700' }}>{itemsReport.total_items}</p></Card><Card style={{ padding: '24px' }}><p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '8px' }}>В наличии</p><p style={{ fontSize: '32px', fontWeight: '700' }}>{itemsReport.in_stock}</p></Card><Card style={{ padding: '24px' }}><p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '8px' }}>Нет в наличии</p><p style={{ fontSize: '32px', fontWeight: '700' }}>{itemsReport.out_of_stock}</p></Card></div>}
+                            {activeTab === 'categories' && categoriesReport && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '24px' }}><Card style={{ padding: '24px' }}><p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '8px' }}>Всего категорий</p><p style={{ fontSize: '32px', fontWeight: '700' }}>{categoriesReport.total_categories}</p></Card></div>}
+                            {activeTab === 'sales' && salesReport && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '24px' }}><Card style={{ padding: '24px' }}><p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '8px' }}>Общая выручка</p><p style={{ fontSize: '32px', fontWeight: '700' }}>${salesReport.total_revenue.toFixed(2)}</p></Card><Card style={{ padding: '24px' }}><p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '8px' }}>Всего заказов</p><p style={{ fontSize: '32px', fontWeight: '700' }}>{salesReport.total_orders}</p></Card><Card style={{ padding: '24px' }}><p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '8px' }}>Средний чек</p><p style={{ fontSize: '32px', fontWeight: '700' }}>${salesReport.average_order_value.toFixed(2)}</p></Card></div>}
+                        </>
+                    )}
+                </div>
+            );
+        };
+
+        const AdminPage = () => {
+            const [tab, setTab] = useState('dashboard');
+            const tabs = [{ id: 'dashboard', label: 'Панель', icon: Icons.grid }, { id: 'users', label: 'Пользователи', icon: Icons.users }, { id: 'items', label: 'Товары', icon: Icons.package }, { id: 'orders', label: 'Заказы', icon: Icons.cart }, { id: 'reports', label: 'Отчеты', icon: Icons.chart }];
+            return (
+                <div style={{ display: 'flex', minHeight: '100vh' }}>
+                    <aside style={{ width: '260px', background: 'var(--bg-card)', borderRight: '1px solid var(--border)', padding: '28px 20px', flexShrink: 0 }}>
+                        <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '28px', padding: '0 12px' }}>Админ-панель</h2>
+                        <nav>{tabs.map(t => <button key={t.id} onClick={() => setTab(t.id)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', border: 'none', borderRadius: '10px', cursor: 'pointer', marginBottom: '6px', background: tab === t.id ? 'linear-gradient(135deg, var(--primary), var(--primary-dark))' : 'transparent', color: tab === t.id ? '#fff' : 'var(--text-muted)', textAlign: 'left', transition: 'all 0.3s', fontFamily: 'inherit', fontSize: '14px', fontWeight: '500' }}>{t.icon}{t.label}</button>)}</nav>
+                        <div style={{ marginTop: 'auto', paddingTop: '20px' }}>
+                            <a href="/" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', color: 'var(--text-muted)', textDecoration: 'none', fontSize: '14px' }}>← На главную</a>
+                        </div>
+                    </aside>
+                    <main style={{ flex: 1, padding: '32px', background: 'var(--bg)', overflow: 'auto' }}>
+                        {tab === 'dashboard' && <AdminDashboard />}
+                        {tab === 'users' && <AdminUsers />}
+                        {tab === 'items' && <AdminItems />}
+                        {tab === 'orders' && <AdminOrders />}
+                        {tab === 'reports' && <AdminReports />}
+                    </main>
+                </div>
+            );
+        };
+
+        function App() {
+            const [user, setUser] = useState(null);
+            const [loading, setLoading] = useState(true);
+            useEffect(() => { (async () => { if (api.token) { try { const u = await api.get('/auth/me'); if (u.role !== 'admin') { window.location.href = '/'; return; } setUser(u); } catch { api.setToken(null); window.location.href = '/'; } } else { window.location.href = '/'; } setLoading(false); })(); }, []);
+            if (loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}><span className="loading-spinner" style={{ width: 48, height: 48 }} /></div>;
+            if (!user || user.role !== 'admin') return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', flexDirection: 'column', gap: '20px' }}><h2>Доступ запрещен</h2><a href="/" style={{ color: 'var(--primary)' }}>Вернуться на главную</a></div>;
+            return (
+                <AuthCtx.Provider value={{ user }}>
+                    <AdminPage />
+                </AuthCtx.Provider>
+            );
+        }
+
+        try {
+            const root = document.getElementById('root');
+            if (ReactDOM.createRoot) {
+                ReactDOM.createRoot(root).render(<App />);
+            } else {
+                ReactDOM.render(<App />, root);
+            }
+        } catch (error) {
+            console.error('Error rendering React app:', error);
+            document.getElementById('root').innerHTML = '<div style="padding: 40px; text-align: center;"><h2>Ошибка загрузки приложения</h2><p>' + error.message + '</p></div>';
+        }
+    </script>
+</body>
+</html>
+

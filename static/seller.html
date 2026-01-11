@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Панель продавца - PC Place</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary: #8b5cf6; --primary-dark: #7c3aed; --secondary: #06b6d4;
+            --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
+            --bg: #0a0a0f; --bg-card: #16161f; --bg-elevated: #1e1e2a;
+            --text: #f4f4f5; --text-muted: #a1a1aa; --border: #27272a;
+        }
+        body { font-family: 'Space Grotesk', sans-serif; background: var(--bg); color: var(--text); }
+        .loading-spinner { width: 24px; height: 24px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-up { animation: fadeUp 0.5s ease forwards; }
+    </style>
+</head>
+<body>
+    <div id="root"><div style="display:flex;justify-content:center;align-items:center;height:100vh"><div class="loading-spinner" style="width:48px;height:48px"></div></div></div>
+    <script type="text/babel">
+        const { useState, useEffect, useContext, createContext } = React;
+        const API = '/api/v1';
+        const AuthCtx = createContext(null);
+
+        const api = {
+            token: localStorage.getItem('token'),
+            setToken(t) { this.token = t; t ? localStorage.setItem('token', t) : localStorage.removeItem('token'); },
+            async req(url, opt = {}) {
+                const headers = { 'Content-Type': 'application/json', ...opt.headers };
+                if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
+                const res = await fetch(`${API}${url}`, { ...opt, headers });
+                const data = await res.json();
+                if (!res.ok) {
+                    const errorMsg = data.detail?.error?.message || data.detail?.message || data.message || 'Error';
+                    throw new Error(errorMsg);
+                }
+                return data;
+            },
+            get: (u) => api.req(u),
+            post: (u, b) => api.req(u, { method: 'POST', body: JSON.stringify(b) }),
+            put: (u, b) => api.req(u, { method: 'PUT', body: JSON.stringify(b) }),
+            del: (u) => api.req(u, { method: 'DELETE' }),
+        };
+
+        const Btn = ({ children, variant = 'primary', size = 'md', loading, disabled, onClick, style }) => {
+            const vars = {
+                primary: { background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))', color: '#fff', border: 'none' },
+                secondary: { background: 'var(--bg-elevated)', color: 'var(--text)', border: '1px solid var(--border)' },
+                danger: { background: 'var(--danger)', color: '#fff', border: 'none' },
+                warning: { background: 'var(--warning)', color: '#fff', border: 'none' },
+                success: { background: 'var(--success)', color: '#fff', border: 'none' },
+            };
+            const sizes = { sm: { padding: '8px 16px', fontSize: '13px' }, md: { padding: '12px 24px', fontSize: '14px' } };
+            return <button onClick={onClick} disabled={disabled || loading} style={{ ...vars[variant], ...sizes[size], borderRadius: '12px', fontWeight: '600', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1, display: 'inline-flex', alignItems: 'center', gap: '8px', transition: 'all 0.3s', fontFamily: 'inherit', ...style }}>{loading && <span className="loading-spinner" style={{width:16,height:16}} />}{children}</button>;
+        };
+
+        const Card = ({ children, style }) => (
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '16px', ...style }}>{children}</div>
+        );
+
+        const Modal = ({ open, onClose, title, children }) => {
+            if (!open) return null;
+            return (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                    <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }} onClick={onClose} />
+                    <Card className="fade-up" style={{ position: 'relative', width: '100%', maxWidth: '480px', maxHeight: '90vh', overflow: 'auto' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '24px', borderBottom: '1px solid var(--border)' }}>
+                            <h2 style={{ fontSize: '20px', fontWeight: '600' }}>{title}</h2>
+                            <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '24px' }}>×</button>
+                        </div>
+                        <div style={{ padding: '24px' }}>{children}</div>
+                    </Card>
+                </div>
+            );
+        };
+
+        const Input = ({ label, error, style, ...props }) => (
+            <div style={{ marginBottom: '20px', ...style }}>
+                {label && <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500', color: 'var(--text-muted)' }}>{label}</label>}
+                <input style={{ width: '100%', padding: '14px 18px', background: 'var(--bg-elevated)', border: `1px solid ${error ? 'var(--danger)' : 'var(--border)'}`, borderRadius: '12px', color: 'var(--text)', fontSize: '15px', outline: 'none', transition: 'border-color 0.3s', fontFamily: 'inherit' }} {...props} onFocus={e => e.target.style.borderColor = 'var(--primary)'} onBlur={e => e.target.style.borderColor = error ? 'var(--danger)' : 'var(--border)'} />
+                {error && <p style={{ marginTop: '6px', fontSize: '13px', color: 'var(--danger)' }}>{error}</p>}
+            </div>
+        );
+
+        const Icons = {
+            package: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M16.5 9.4l-9-5.19M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/></svg>,
+            edit: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+            trash: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>,
+            plus: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>,
+            eye: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
+            eyeOff: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>,
+            logout: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>,
+        };
+
+        const CreateItemForm = ({ item, onSuccess, onCancel }) => {
+            const [categories, setCategories] = useState([]);
+            const [formData, setFormData] = useState({
+                name: item?.name || '',
+                description: item?.description || '',
+                price: item?.price || '',
+                quantity: item?.quantity || 1,
+                category_id: item?.category_id || '',
+                image_url: item?.image_url || ''
+            });
+            const [loading, setLoading] = useState(false);
+            const [uploading, setUploading] = useState(false);
+            const [uploadError, setUploadError] = useState('');
+            
+            useEffect(() => {
+                (async () => {
+                    try {
+                        const data = await api.get('/categories');
+                        setCategories(data || []);
+                    } catch (e) {
+                        console.error('Failed to load categories:', e);
+                    }
+                })();
+            }, []);
+            
+            const handleFileChange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                // Проверка типа файла
+                if (!file.type.startsWith('image/')) {
+                    setUploadError('Пожалуйста, выберите изображение');
+                    return;
+                }
+                
+                // Проверка размера файла (максимум 10MB)
+                if (file.size > 10 * 1024 * 1024) {
+                    setUploadError('Файл слишком большой (максимум 10MB)');
+                    return;
+                }
+                
+                setUploading(true);
+                setUploadError('');
+                
+                try {
+                    const uploadFormData = new FormData();
+                    uploadFormData.append('file', file);
+                    
+                    const response = await fetch('/api/v1/files/upload/image?folder=items', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        },
+                        body: uploadFormData
+                    });
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.detail || 'Ошибка загрузки изображения');
+                    }
+                    
+                    const data = await response.json();
+                    setFormData(prev => ({ ...prev, image_url: data.url }));
+                    setUploadError('');
+                } catch (err) {
+                    console.error('Upload error:', err);
+                    setUploadError(err.message || 'Не удалось загрузить изображение');
+                } finally {
+                    setUploading(false);
+                }
+            };
+            
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                try {
+                    if (item) {
+                        await api.put(`/items/${item.id}`, formData);
+                    } else {
+                        await api.post('/items', formData);
+                    }
+                    onSuccess();
+                } catch (e) {
+                    alert(e.message || 'Ошибка');
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
+            return (
+                <form onSubmit={handleSubmit}>
+                    <Input label="Название" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
+                    <Input label="Описание" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+                    <Input label="Цена" type="number" step="0.01" min="0" value={formData.price} onChange={e => setFormData({...formData, price: parseFloat(e.target.value)})} required />
+                    <Input label="Количество" type="number" min="0" value={formData.quantity} onChange={e => setFormData({...formData, quantity: parseInt(e.target.value)})} required />
+                    <div style={{ marginBottom: '20px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500', color: 'var(--text-muted)' }}>Категория</label>
+                        <select value={formData.category_id} onChange={e => setFormData({...formData, category_id: parseInt(e.target.value)})} required style={{ width: '100%', padding: '14px 18px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '12px', color: 'var(--text)', fontSize: '15px', outline: 'none', fontFamily: 'inherit' }}>
+                            <option value="">Выберите категорию</option>
+                            {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+                        </select>
+                    </div>
+                    
+                    {/* Загрузка изображения */}
+                    <div style={{ marginBottom: '20px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500', color: 'var(--text-muted)' }}>Изображение товара</label>
+                        <input 
+                            type="file" 
+                            accept="image/*" 
+                            onChange={handleFileChange}
+                            disabled={uploading}
+                            style={{ 
+                                width: '100%', 
+                                padding: '14px 18px', 
+                                background: 'var(--bg-elevated)', 
+                                border: '1px solid var(--border)', 
+                                borderRadius: '12px', 
+                                color: 'var(--text)', 
+                                fontSize: '14px',
+                                cursor: uploading ? 'not-allowed' : 'pointer'
+                            }} 
+                        />
+                        {uploading && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', color: 'var(--text-muted)' }}>
+                                <span className="loading-spinner" style={{ width: 16, height: 16 }} />
+                                <span style={{ fontSize: '13px' }}>Загрузка...</span>
+                            </div>
+                        )}
+                        {uploadError && (
+                            <p style={{ fontSize: '13px', color: 'var(--danger)', marginTop: '8px' }}>{uploadError}</p>
+                        )}
+                        {formData.image_url && !uploading && (
+                            <div style={{ marginTop: '12px' }}>
+                                <p style={{ fontSize: '13px', color: 'var(--success)', marginBottom: '8px' }}>✓ Изображение загружено</p>
+                                <img 
+                                    src={formData.image_url} 
+                                    alt="Preview" 
+                                    style={{ 
+                                        maxWidth: '200px', 
+                                        maxHeight: '150px', 
+                                        borderRadius: '8px', 
+                                        border: '1px solid var(--border)' 
+                                    }} 
+                                />
+                            </div>
+                        )}
+                    </div>
+                    
+                    {/* Или URL изображения */}
+                    <div style={{ marginBottom: '20px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500', color: 'var(--text-muted)' }}>Или введите URL изображения</label>
+                        <input 
+                            type="url" 
+                            value={formData.image_url} 
+                            onChange={e => setFormData({...formData, image_url: e.target.value})}
+                            placeholder="https://example.com/image.jpg"
+                            style={{ 
+                                width: '100%', 
+                                padding: '14px 18px', 
+                                background: 'var(--bg-elevated)', 
+                                border: '1px solid var(--border)', 
+                                borderRadius: '12px', 
+                                color: 'var(--text)', 
+                                fontSize: '15px', 
+                                outline: 'none', 
+                                fontFamily: 'inherit' 
+                            }} 
+                        />
+                    </div>
+                    
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>
+                        <Btn type="button" variant="secondary" onClick={onCancel}>Отмена</Btn>
+                        <Btn type="submit" loading={loading} disabled={uploading}>{item ? 'Сохранить' : 'Создать'}</Btn>
+                    </div>
+                </form>
+            );
+        };
+
+        const SellerPanel = () => {
+            const [user, setUser] = useState(null);
+            const [items, setItems] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [page, setPage] = useState(1);
+            const [total, setTotal] = useState(0);
+            const [showCreateModal, setShowCreateModal] = useState(false);
+            const [editingItem, setEditingItem] = useState(null);
+            
+            useEffect(() => {
+                (async () => {
+                    if (!api.token) {
+                        window.location.href = '/';
+                        return;
+                    }
+                    try {
+                        const u = await api.get('/auth/me');
+                        if (u.role !== 'seller' && u.role !== 'admin') {
+                            window.location.href = '/';
+                            return;
+                        }
+                        setUser(u);
+                    } catch {
+                        api.setToken(null);
+                        window.location.href = '/';
+                    }
+                })();
+            }, []);
+            
+            const loadItems = async () => {
+                try {
+                    const data = await api.get(`/items/my/items?page=${page}&limit=20`);
+                    setItems(data.items || []);
+                    setTotal(data.total || 0);
+                } catch (e) {
+                    console.error('Failed to load items:', e);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
+            useEffect(() => {
+                if (user) {
+                    loadItems();
+                }
+            }, [user, page]);
+            
+            const handleDelete = async (itemId) => {
+                if (!confirm('Удалить товар?')) return;
+                try {
+                    await api.del(`/items/${itemId}`);
+                    loadItems();
+                } catch (e) {
+                    alert(e.message || 'Ошибка удаления');
+                }
+            };
+            
+            const handleToggleActive = async (item) => {
+                try {
+                    await api.put(`/items/${item.id}`, { is_active: !item.is_active });
+                    loadItems();
+                } catch (e) {
+                    alert(e.message || 'Ошибка');
+                }
+            };
+            
+            if (loading) {
+                return <div style={{ display: 'flex', justifyContent: 'center', padding: '80px' }}><span className="loading-spinner" style={{ width: 48, height: 48 }} /></div>;
+            }
+            
+            return (
+                <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '48px 24px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '48px', flexWrap: 'wrap', gap: '24px' }}>
+                        <div>
+                            <h1 style={{ fontSize: '42px', fontWeight: '700', marginBottom: '12px', background: 'linear-gradient(135deg, var(--primary), var(--secondary))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Панель продавца</h1>
+                            <p style={{ fontSize: '16px', color: 'var(--text-muted)', lineHeight: '1.6' }}>Управляйте своими товарами и отслеживайте продажи</p>
+                        </div>
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                            <a href="/" style={{ textDecoration: 'none' }}><Btn variant="secondary">На главную</Btn></a>
+                            <Btn onClick={() => setShowCreateModal(true)} style={{ fontSize: '15px', padding: '14px 28px' }}>{Icons.plus} Создать товар</Btn>
+                        </div>
+                    </div>
+                    
+                    {items.length === 0 ? (
+                        <Card style={{ padding: '100px 40px', textAlign: 'center' }}>
+                            <div style={{ width: '80px', height: '80px', margin: '0 auto 24px', background: 'var(--bg-elevated)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                {Icons.package}
+                            </div>
+                            <h2 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '12px' }}>Нет товаров</h2>
+                            <p style={{ color: 'var(--text-muted)', marginBottom: '32px', fontSize: '15px' }}>Начните продавать на маркетплейсе, создав свой первый товар</p>
+                            <Btn onClick={() => setShowCreateModal(true)}>{Icons.plus} Создать первый товар</Btn>
+                        </Card>
+                    ) : (
+                        <>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '32px' }}>
+                                <Card style={{ padding: '24px', background: 'linear-gradient(135deg, rgba(139,92,246,0.1), rgba(59,130,246,0.1))', border: '1px solid rgba(139,92,246,0.2)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                                        <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'linear-gradient(135deg, var(--primary), var(--secondary))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '18px' }}>{Icons.package}</div>
+                                        <p style={{ fontSize: '14px', color: 'var(--text-muted)', fontWeight: '500' }}>Всего товаров</p>
+                                    </div>
+                                    <p style={{ fontSize: '32px', fontWeight: '700', background: 'linear-gradient(135deg, var(--primary), var(--secondary))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{total}</p>
+                                </Card>
+                                <Card style={{ padding: '24px', background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(5,150,105,0.1))', border: '1px solid rgba(16,185,129,0.2)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                                        <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '18px' }}>{Icons.eye}</div>
+                                        <p style={{ fontSize: '14px', color: 'var(--text-muted)', fontWeight: '500' }}>Активных</p>
+                                    </div>
+                                    <p style={{ fontSize: '32px', fontWeight: '700', color: 'var(--success)' }}>{items.filter(i => i.is_active).length}</p>
+                                </Card>
+                                <Card style={{ padding: '24px', background: 'linear-gradient(135deg, rgba(239,68,68,0.1), rgba(220,38,38,0.1))', border: '1px solid rgba(239,68,68,0.2)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                                        <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--danger)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '18px' }}>{Icons.eyeOff}</div>
+                                        <p style={{ fontSize: '14px', color: 'var(--text-muted)', fontWeight: '500' }}>Неактивных</p>
+                                    </div>
+                                    <p style={{ fontSize: '32px', fontWeight: '700', color: 'var(--danger)' }}>{items.filter(i => !i.is_active).length}</p>
+                                </Card>
+                            </div>
+                            
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '28px' }}>
+                                {items.map(item => (
+                                    <Card key={item.id} style={{ padding: '0', position: 'relative', overflow: 'hidden', border: '1px solid var(--border)', transition: 'all 0.3s ease' }} onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-6px)'; e.currentTarget.style.boxShadow = '0 16px 48px rgba(0,0,0,0.2)'; e.currentTarget.style.borderColor = 'var(--primary)'; }} onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = 'var(--border)'; }}>
+                                        {!item.is_active && (
+                                            <div style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 10, background: 'var(--danger)', color: '#fff', padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', boxShadow: '0 4px 12px rgba(239,68,68,0.4)' }}>
+                                                Неактивен
+                                            </div>
+                                        )}
+                                        {item.image_url ? (
+                                            <div style={{ height: '220px', overflow: 'hidden', background: 'var(--bg-elevated)' }}>
+                                                <img src={item.image_url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.3s' }} onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'} />
+                                            </div>
+                                        ) : (
+                                            <div style={{ height: '220px', background: 'linear-gradient(135deg, var(--bg-elevated), var(--bg))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <span style={{ color: 'var(--border)', fontSize: '48px' }}>{Icons.package}</span>
+                                            </div>
+                                        )}
+                                        <div style={{ padding: '20px' }}>
+                                            <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px', lineHeight: '1.4' }}>{item.name}</h3>
+                                            <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '16px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: '40px' }}>{item.description || 'Нет описания'}</p>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', padding: '12px', background: 'var(--bg-elevated)', borderRadius: '10px' }}>
+                                                <div>
+                                                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px' }}>Цена</p>
+                                                    <span style={{ fontSize: '22px', fontWeight: '700', background: 'linear-gradient(135deg, var(--primary), var(--secondary))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>${item.price.toFixed(2)}</span>
+                                                </div>
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px' }}>Остаток</p>
+                                                    <span style={{ fontSize: '18px', fontWeight: '600', color: item.quantity > 0 ? 'var(--success)' : 'var(--danger)' }}>{item.quantity}</span>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                                <Btn size="sm" variant="secondary" onClick={() => { setEditingItem(item); setShowCreateModal(true); }} style={{ flex: 1, minWidth: '130px', fontSize: '13px' }}>
+                                                    {Icons.edit} Редактировать
+                                                </Btn>
+                                                <Btn size="sm" variant={item.is_active ? 'warning' : 'success'} onClick={() => handleToggleActive(item)} style={{ minWidth: '150px', fontSize: '13px' }}>
+                                                    {item.is_active ? Icons.eyeOff : Icons.eye} {item.is_active ? 'Скрыть' : 'Показать'}
+                                                </Btn>
+                                                <Btn size="sm" variant="danger" onClick={() => handleDelete(item.id)} style={{ padding: '10px 14px', fontSize: '13px' }} title="Удалить товар">
+                                                    {Icons.trash} Удалить
+                                                </Btn>
+                                            </div>
+                                        </div>
+                                    </Card>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                    
+                    {total > 20 && (
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '32px' }}>
+                            <Btn variant="secondary" disabled={page === 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Назад</Btn>
+                            <span style={{ display: 'flex', alignItems: 'center', padding: '0 16px', color: 'var(--text-muted)' }}>Страница {page} из {Math.ceil(total / 20)}</span>
+                            <Btn variant="secondary" disabled={page >= Math.ceil(total / 20)} onClick={() => setPage(p => p + 1)}>Вперед</Btn>
+                        </div>
+                    )}
+                    
+                    {showCreateModal && (
+                        <Modal open={showCreateModal} onClose={() => { setShowCreateModal(false); setEditingItem(null); }} title={editingItem ? 'Редактировать товар' : 'Создать товар'}>
+                            <CreateItemForm
+                                item={editingItem}
+                                onSuccess={() => {
+                                    setShowCreateModal(false);
+                                    setEditingItem(null);
+                                    loadItems();
+                                }}
+                                onCancel={() => {
+                                    setShowCreateModal(false);
+                                    setEditingItem(null);
+                                }}
+                            />
+                        </Modal>
+                    )}
+                </div>
+            );
+        };
+
+        function App() {
+            return <SellerPanel />;
+        }
+
+        (function initReact() {
+            if (typeof React === 'undefined' || typeof ReactDOM === 'undefined') {
+                console.error('React or ReactDOM not loaded');
+                document.getElementById('root').innerHTML = '<div style="padding: 40px; text-align: center;"><h2>Ошибка загрузки</h2><p>Пожалуйста, обновите страницу</p></div>';
+                return;
+            }
+            try {
+                const root = ReactDOM.createRoot(document.getElementById('root'));
+                root.render(<App />);
+            } catch (e) {
+                console.error('Error rendering React app:', e);
+                document.getElementById('root').innerHTML = '<div style="padding: 40px; text-align: center;"><h2>Ошибка инициализации</h2><p>' + e.message + '</p></div>';
+            }
+        })();
+    </script>
+</body>
+</html>
+
