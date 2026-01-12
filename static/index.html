@@ -84,8 +84,169 @@
             transform: translateY(0);
             filter: brightness(0.95);
         }
+        
+        /* Адаптивные стили для переопределения inline-стилей */
+        @media (max-width: 1400px) {
+            [style*="maxWidth: '1400px'"] {
+                max-width: 95% !important;
+                padding: 0 12px !important;
+            }
+        }
+        
+        @media (max-width: 1200px) {
+            [style*="gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))'"],
+            [style*="gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))'"] {
+                grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)) !important;
+                gap: 16px !important;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            /* Адаптация шапки */
+            [style*="height: '72px'"] {
+                height: auto !important;
+                padding: 12px !important;
+                flex-direction: column !important;
+                gap: 12px !important;
+            }
+            
+            [style*="justifyContent: 'space-between'"][style*="alignItems: 'center'"] {
+                width: 100% !important;
+                flex-direction: column !important;
+                text-align: center !important;
+            }
+            
+            /* Навигация */
+            [style*="gap: '32px'"] {
+                margin: 12px 0 !important;
+                gap: 8px !important;
+                flex-wrap: wrap !important;
+                justify-content: center !important;
+            }
+            
+            /* Кнопки навигации */
+            button[style*="fontSize: '15px'"]:not([style*="padding: '12px 24px'"]),
+            a[style*="fontSize: '15px'"] {
+                font-size: 14px !important;
+                padding: 8px 12px !important;
+                margin: 4px !important;
+            }
+            
+            /* Герой-секция */
+            [style*="padding: '100px 24px'"] {
+                padding: 60px 16px !important;
+            }
+            
+            [style*="fontSize: 'clamp(36px'][style*="fontWeight: '700'"] {
+                font-size: clamp(24px, 6vw, 32px) !important;
+            }
+            
+            /* Карточки товаров */
+            [style*="gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))'"],
+            [style*="gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))'"] {
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) !important;
+                gap: 16px !important;
+            }
+            
+            /* Секция с товарами */
+            [style*="padding: '80px 24px'"] {
+                padding: 40px 16px !important;
+            }
+            
+            /* Каталог */
+            [style*="padding: '48px 24px'"] {
+                padding: 24px 16px !important;
+            }
+            
+            [style*="gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))'"] {
+                grid-template-columns: 1fr !important;
+            }
+            
+            /* Корзина */
+            [style*="flexDirection: 'row'"][style*="justifyContent: 'space-between'"] {
+                flex-direction: column !important;
+                gap: 16px !important;
+            }
+            
+            /* Чат */
+            [style*="height: '700px'"] {
+                height: 600px !important;
+            }
+            
+            [style*="display: 'flex'"][style*="gap: '24px'"][style*="height: '700px'"] {
+                flex-direction: column !important;
+                gap: 16px !important;
+            }
+            
+            [style*="width: '350px'"][style*="flexDirection: 'column'"] {
+                width: 100% !important;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            /* Шапка */
+            [style*="padding: '0 24px'"] {
+                padding: 0 12px !important;
+            }
+            
+            /* Герой-секция */
+            [style*="padding: '60px 16px'"] {
+                padding: 40px 12px !important;
+            }
+            
+            /* Карточки товаров */
+            [style*="gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))'"],
+            [style*="gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))'"] {
+                grid-template-columns: 1fr !important;
+            }
+            
+            /* Размеры шрифтов */
+            [style*="fontSize: '32px'"][style*="fontWeight: '700'"] {
+                font-size: 24px !important;
+            }
+            
+            [style*="fontSize: '36px'"][style*="fontWeight: '700'"] {
+                font-size: 24px !important;
+            }
+            
+            [style*="fontSize: '22px'"][style*="fontWeight: '700'"] {
+                font-size: 18px !important;
+            }
+            
+            /* Карточка товара */
+            [style*="padding: '20px'"] {
+                padding: 16px !important;
+            }
+            
+            /* Фильтры каталога */
+            [style*="marginBottom: '40px'"] {
+                margin-bottom: 24px !important;
+            }
+            
+            /* Кнопки */
+            [style*="padding: '12px 24px'"] {
+                padding: 10px 20px !important;
+            }
+            
+            [style*="padding: '16px 32px'"] {
+                padding: 12px 24px !important;
+            }
+            
+            /* Модальные окна */
+            [style*="maxWidth: '480px'"] {
+                max-width: 95vw !important;
+                margin: 10px !important;
+            }
+            
+            /* Чат */
+            [style*="height: '600px'"] {
+                height: 500px !important;
+            }
+        }
     </style>
 </head>
+
+
 <body>
     <div id="root"><div style="display:flex;justify-content:center;align-items:center;height:100vh"><div class="loading-spinner" style="width:48px;height:48px"></div></div></div>
     <script type="text/babel">
