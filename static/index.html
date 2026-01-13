@@ -1,0 +1,1787 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PC Place - Маркетплейс комплектующих</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js" onerror="console.error('Failed to load React')"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" onerror="console.error('Failed to load ReactDOM')"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js" onerror="console.error('Failed to load Babel')"></script>
+    <script>
+        // Check if libraries loaded
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                if (typeof React === 'undefined') {
+                    console.error('React not loaded');
+                    document.getElementById('root').innerHTML = '<div style="padding: 40px; text-align: center; color: #ef4444;"><h2>Ошибка: React не загружен</h2><p>Проверьте подключение к интернету</p></div>';
+                } else if (typeof ReactDOM === 'undefined') {
+                    console.error('ReactDOM not loaded');
+                    document.getElementById('root').innerHTML = '<div style="padding: 40px; text-align: center; color: #ef4444;"><h2>Ошибка: ReactDOM не загружен</h2><p>Проверьте подключение к интернету</p></div>';
+                } else if (typeof Babel === 'undefined') {
+                    console.error('Babel not loaded');
+                    document.getElementById('root').innerHTML = '<div style="padding: 40px; text-align: center; color: #ef4444;"><h2>Ошибка: Babel не загружен</h2><p>Проверьте подключение к интернету</p></div>';
+                } else {
+                    console.log('All libraries loaded successfully');
+                }
+            }, 100);
+        });
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary: #8b5cf6; --primary-dark: #7c3aed; --secondary: #06b6d4;
+            --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
+            --bg: #0a0a0f; --bg-card: #16161f; --bg-elevated: #1e1e2a;
+            --text: #f4f4f5; --text-muted: #a1a1aa; --border: #27272a;
+            --glow: rgba(139, 92, 246, 0.3);
+        }
+        body { font-family: 'Space Grotesk', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+        .loading-spinner { width: 24px; height: 24px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes glow { 0%, 100% { box-shadow: 0 0 20px var(--glow); } 50% { box-shadow: 0 0 40px var(--glow); } }
+        .fade-up { animation: fadeUp 0.5s ease forwards; }
+        ::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-track { background: var(--bg); } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        .product-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+        }
+        .product-card:hover {
+            transform: scale(1.05);
+            z-index: 10;
+            border-color: var(--primary) !important;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+        .product-image-container {
+            height: 200px;
+            background: linear-gradient(135deg, var(--bg-elevated), var(--bg));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            transition: height 0.3s ease;
+        }
+        .product-card:hover .product-image-container {
+            height: 220px;
+        }
+        .product-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+        .product-card:hover .product-image {
+            transform: scale(1.05);
+        }
+        button {
+            transition: all 0.2s ease-in-out !important;
+        }
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            filter: brightness(1.15);
+        }
+        button:active:not(:disabled) {
+            transform: translateY(0);
+            filter: brightness(0.95);
+        }
+        
+        /* Адаптивные стили для переопределения inline-стилей */
+        @media (max-width: 1400px) {
+            [style*="maxWidth: '1400px'"] {
+                max-width: 95% !important;
+                padding: 0 12px !important;
+            }
+        }
+        
+        @media (max-width: 1200px) {
+            [style*="gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))'"],
+            [style*="gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))'"] {
+                grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)) !important;
+                gap: 16px !important;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            /* Адаптация шапки */
+            [style*="height: '72px'"] {
+                height: auto !important;
+                padding: 12px !important;
+                flex-direction: column !important;
+                gap: 12px !important;
+            }
+            
+            [style*="justifyContent: 'space-between'"][style*="alignItems: 'center'"] {
+                width: 100% !important;
+                flex-direction: column !important;
+                text-align: center !important;
+            }
+            
+            /* Навигация */
+            [style*="gap: '32px'"] {
+                margin: 12px 0 !important;
+                gap: 8px !important;
+                flex-wrap: wrap !important;
+                justify-content: center !important;
+            }
+            
+            /* Кнопки навигации */
+            button[style*="fontSize: '15px'"]:not([style*="padding: '12px 24px'"]),
+            a[style*="fontSize: '15px'"] {
+                font-size: 14px !important;
+                padding: 8px 12px !important;
+                margin: 4px !important;
+            }
+            
+            /* Герой-секция */
+            [style*="padding: '100px 24px'"] {
+                padding: 60px 16px !important;
+            }
+            
+            [style*="fontSize: 'clamp(36px'][style*="fontWeight: '700'"] {
+                font-size: clamp(24px, 6vw, 32px) !important;
+            }
+            
+            /* Карточки товаров */
+            [style*="gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))'"],
+            [style*="gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))'"] {
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) !important;
+                gap: 16px !important;
+            }
+            
+            /* Секция с товарами */
+            [style*="padding: '80px 24px'"] {
+                padding: 40px 16px !important;
+            }
+            
+            /* Каталог */
+            [style*="padding: '48px 24px'"] {
+                padding: 24px 16px !important;
+            }
+            
+            [style*="gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))'"] {
+                grid-template-columns: 1fr !important;
+            }
+            
+            /* Корзина */
+            [style*="flexDirection: 'row'"][style*="justifyContent: 'space-between'"] {
+                flex-direction: column !important;
+                gap: 16px !important;
+            }
+            
+            /* Чат - Панель поддержки */
+            [style*="height: '700px'"] {
+                height: calc(100vh - 200px) !important;
+                min-height: 500px !important;
+                max-height: 700px !important;
+            }
+            
+            [style*="display: 'flex'"][style*="gap: '24px'"][style*="height: '700px'"] {
+                flex-direction: column !important;
+                gap: 12px !important;
+                height: auto !important;
+            }
+            
+            [style*="width: '350px'"][style*="flexDirection: 'column'"] {
+                width: 100% !important;
+                max-height: 250px !important;
+            }
+            
+            /* Список диалогов на мобильных */
+            [style*="width: '350px'"][style*="flexShrink: 0"] {
+                width: 100% !important;
+                max-height: 200px !important;
+                flex-shrink: 1 !important;
+            }
+            
+            /* Область сообщений */
+            [style*="flex: 1"][style*="overflowY: 'auto'"][style*="padding: '20px'"] {
+                padding: 12px !important;
+            }
+            
+            /* Поле ввода сообщения */
+            [style*="padding: '20px'"][style*="borderTop"] {
+                padding: 12px !important;
+            }
+            
+            /* Пузырьки сообщений */
+            [style*="maxWidth: '70%'"][style*="padding: '12px 16px'"] {
+                max-width: 85% !important;
+                padding: 10px 14px !important;
+            }
+            
+            /* Заголовок чата */
+            [style*="fontSize: '36px'"][style*="marginBottom: '32px'"] {
+                font-size: 24px !important;
+                margin-bottom: 16px !important;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            /* Шапка */
+            [style*="padding: '0 24px'"] {
+                padding: 0 12px !important;
+            }
+            
+            /* Герой-секция */
+            [style*="padding: '60px 16px'"] {
+                padding: 40px 12px !important;
+            }
+            
+            /* Карточки товаров */
+            [style*="gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))'"],
+            [style*="gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))'"] {
+                grid-template-columns: 1fr !important;
+            }
+            
+            /* Размеры шрифтов */
+            [style*="fontSize: '32px'"][style*="fontWeight: '700'"] {
+                font-size: 24px !important;
+            }
+            
+            [style*="fontSize: '36px'"][style*="fontWeight: '700'"] {
+                font-size: 22px !important;
+            }
+            
+            [style*="fontSize: '22px'"][style*="fontWeight: '700'"] {
+                font-size: 18px !important;
+            }
+            
+            /* Карточка товара */
+            [style*="padding: '20px'"] {
+                padding: 14px !important;
+            }
+            
+            /* Фильтры каталога */
+            [style*="marginBottom: '40px'"] {
+                margin-bottom: 20px !important;
+            }
+            
+            /* Кнопки */
+            [style*="padding: '12px 24px'"] {
+                padding: 10px 18px !important;
+            }
+            
+            [style*="padding: '16px 32px'"] {
+                padding: 12px 20px !important;
+            }
+            
+            /* Модальные окна */
+            [style*="maxWidth: '480px'"] {
+                max-width: 95vw !important;
+                margin: 8px !important;
+            }
+            
+            /* Чат на маленьких экранах */
+            [style*="height: '600px'"],
+            [style*="height: '700px'"] {
+                height: calc(100vh - 150px) !important;
+                min-height: 400px !important;
+            }
+            
+            /* Пузырьки сообщений на маленьких экранах */
+            [style*="maxWidth: '70%'"][style*="padding: '12px 16px'"],
+            [style*="maxWidth: '85%'"] {
+                max-width: 90% !important;
+                padding: 8px 12px !important;
+                font-size: 14px !important;
+            }
+            
+            /* Кнопка прокрутки вниз */
+            [style*="bottom: '100px'"][style*="right: '40px'"] {
+                bottom: 80px !important;
+                right: 20px !important;
+            }
+            
+            /* Поле ввода */
+            input[style*="padding: '14px 18px'"] {
+                padding: 12px 14px !important;
+                font-size: 14px !important;
+            }
+            
+            /* Заголовки страниц */
+            h1[style*="fontSize: '36px'"] {
+                font-size: 22px !important;
+            }
+            
+            /* Список диалогов */
+            [style*="padding: '16px 20px'"] {
+                padding: 12px 14px !important;
+            }
+        }
+    </style>
+</head>
+
+
+<body>
+    <div id="root"><div style="display:flex;justify-content:center;align-items:center;height:100vh"><div class="loading-spinner" style="width:48px;height:48px"></div></div></div>
+    <script type="text/babel">
+        // Simple initialization - Babel will handle JSX transformation
+        console.log('[Babel] Script loading...');
+        const { useState, useEffect, createContext, useContext } = React;
+        const API = '/api/v1';
+        const AuthCtx = createContext(null);
+        const CartCtx = createContext(null);
+
+        const api = {
+            token: localStorage.getItem('token'),
+            setToken(t) { this.token = t; t ? localStorage.setItem('token', t) : localStorage.removeItem('token'); },
+            async req(url, opt = {}) {
+                const headers = { 'Content-Type': 'application/json', ...opt.headers };
+                if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
+                    try {
+                const res = await fetch(`${API}${url}`, { ...opt, headers });
+                        let data;
+                        try {
+                            data = await res.json();
+                        } catch (e) {
+                            throw new Error(`Server error: ${res.status} ${res.statusText}`);
+                        }
+                        if (!res.ok) {
+                            // Handle FastAPI error format
+                            let errorMsg = `Error: ${res.status} ${res.statusText}`;
+                            if (data.detail) {
+                                if (typeof data.detail === 'string') {
+                                    errorMsg = data.detail;
+                                } else if (data.detail.error && data.detail.error.message) {
+                                    errorMsg = data.detail.error.message;
+                                } else if (data.detail.message) {
+                                    errorMsg = data.detail.message;
+                                }
+                            } else if (data.error) {
+                                if (typeof data.error === 'string') {
+                                    errorMsg = data.error;
+                                } else if (data.error.message) {
+                                    errorMsg = data.error.message;
+                                }
+                            } else if (data.message) {
+                                errorMsg = data.message;
+                            }
+                            throw new Error(errorMsg);
+                        }
+                return data;
+                    } catch (e) {
+                        // Re-throw if it's already an Error
+                        if (e instanceof Error) throw e;
+                        throw new Error(e.message || 'Network error');
+                    }
+            },
+            get: (u) => api.req(u),
+            post: (u, b) => api.req(u, { method: 'POST', body: JSON.stringify(b) }),
+            put: (u, b) => api.req(u, { method: 'PUT', body: JSON.stringify(b) }),
+            del: (u) => api.req(u, { method: 'DELETE' }),
+        };
+
+        // Утилита для форматирования времени с учетом часового пояса
+        const formatTime = (dateString) => {
+            if (!dateString) return '';
+            // Если строка не содержит информацию о часовом поясе, добавляем Z (UTC)
+            let isoString = dateString;
+            if (!dateString.endsWith('Z') && !dateString.includes('+') && !dateString.includes('-', 10)) {
+                isoString = dateString + 'Z';
+            }
+            const date = new Date(isoString);
+            return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        };
+        
+        const formatDateTime = (dateString) => {
+            if (!dateString) return '';
+            let isoString = dateString;
+            if (!dateString.endsWith('Z') && !dateString.includes('+') && !dateString.includes('-', 10)) {
+                isoString = dateString + 'Z';
+            }
+            const date = new Date(isoString);
+            const today = new Date();
+            const isToday = date.toDateString() === today.toDateString();
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const isYesterday = date.toDateString() === yesterday.toDateString();
+            
+            if (isToday) {
+                return 'Сегодня, ' + date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            } else if (isYesterday) {
+                return 'Вчера, ' + date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            } else {
+                return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) + ', ' + 
+                       date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            }
+        };
+
+        // UI Components
+        const Btn = ({ children, variant = 'primary', size = 'md', loading, disabled, onClick, style }) => {
+            const vars = {
+                primary: { background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))', color: '#fff', border: 'none' },
+                secondary: { background: 'var(--bg-elevated)', color: 'var(--text)', border: '1px solid var(--border)' },
+                ghost: { background: 'transparent', color: 'var(--text-muted)', border: 'none' },
+                danger: { background: 'var(--danger)', color: '#fff', border: 'none' },
+                warning: { background: 'var(--warning)', color: '#fff', border: 'none' },
+                success: { background: 'var(--success)', color: '#fff', border: 'none' },
+            };
+            const sizes = { sm: { padding: '8px 16px', fontSize: '13px' }, md: { padding: '12px 24px', fontSize: '14px' }, lg: { padding: '16px 32px', fontSize: '16px' } };
+            return <button onClick={onClick} disabled={disabled || loading} style={{ ...vars[variant], ...sizes[size], borderRadius: '12px', fontWeight: '600', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1, display: 'inline-flex', alignItems: 'center', gap: '8px', fontFamily: 'inherit', ...style }}>{loading && <span className="loading-spinner" style={{width:16,height:16}} />}{children}</button>;
+        };
+
+        const Card = ({ children, style, className = '' }) => (
+            <div className={className} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '16px', ...style }}>{children}</div>
+        );
+
+        const Badge = ({ children, variant = 'default' }) => {
+            const vars = { default: { bg: 'var(--border)', color: 'var(--text-muted)' }, primary: { bg: 'rgba(139,92,246,0.2)', color: 'var(--primary)' }, success: { bg: 'rgba(16,185,129,0.2)', color: 'var(--success)' }, warning: { bg: 'rgba(245,158,11,0.2)', color: 'var(--warning)' }, danger: { bg: 'rgba(239,68,68,0.2)', color: 'var(--danger)' } };
+            return <span style={{ background: vars[variant].bg, color: vars[variant].color, padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>{children}</span>;
+        };
+
+        // User Name Component with role prefix and color
+        const UserName = ({ user, role, style, isOwnMessage = false }) => {
+            const userRole = role || user?.role;
+            const roleConfig = {
+                admin: { prefix: 'Админ', color: '#ff6b6b', bg: 'rgba(239,68,68,0.25)', textColor: '#ffa5a5' },
+                seller: { prefix: 'Продавец', color: '#ffc078', bg: 'rgba(245,158,11,0.25)', textColor: '#ffd699' },
+                support: { prefix: 'Поддержка', color: '#b197fc', bg: 'rgba(139,92,246,0.25)', textColor: '#d4c4ff' },
+                user: { prefix: null, color: 'var(--text-muted)', bg: 'transparent', textColor: '#e0e0e0' }
+            };
+            const config = roleConfig[userRole] || roleConfig.user;
+            const displayName = user?.username || user;
+            
+            // Если это собственное сообщение на градиентном фоне, используем белые/светлые цвета
+            const nameColor = isOwnMessage ? 'rgba(255,255,255,0.9)' : config.textColor;
+            const badgeColor = isOwnMessage ? 'rgba(255,255,255,0.95)' : config.color;
+            const badgeBg = isOwnMessage ? 'rgba(255,255,255,0.2)' : config.bg;
+            
+            return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', ...style }}>
+                    {config.prefix && (
+                        <span style={{ 
+                            fontSize: '11px', 
+                            fontWeight: '700', 
+                            color: badgeColor, 
+                            background: badgeBg,
+                            padding: '3px 10px', 
+                            borderRadius: '12px',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                            textShadow: isOwnMessage ? '0 1px 2px rgba(0,0,0,0.2)' : 'none'
+                        }}>
+                            {config.prefix}
+                        </span>
+                    )}
+                    <span style={{ 
+                        fontSize: '14px', 
+                        color: nameColor, 
+                        fontFamily: 'JetBrains Mono',
+                        fontWeight: '600',
+                        textShadow: isOwnMessage ? '0 1px 2px rgba(0,0,0,0.2)' : 'none'
+                    }}>
+                        {displayName}
+                    </span>
+                </div>
+            );
+        };
+
+        const Input = ({ label, error, style, ...props }) => (
+            <div style={{ marginBottom: '20px', ...style }}>
+                {label && <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500', color: 'var(--text-muted)' }}>{label}</label>}
+                <input style={{ width: '100%', padding: '14px 18px', background: 'var(--bg-elevated)', border: `1px solid ${error ? 'var(--danger)' : 'var(--border)'}`, borderRadius: '12px', color: 'var(--text)', fontSize: '15px', outline: 'none', transition: 'border-color 0.3s', fontFamily: 'inherit' }} {...props} onFocus={e => e.target.style.borderColor = 'var(--primary)'} onBlur={e => e.target.style.borderColor = error ? 'var(--danger)' : 'var(--border)'} />
+                {error && <p style={{ marginTop: '6px', fontSize: '13px', color: 'var(--danger)' }}>{error}</p>}
+            </div>
+        );
+
+        const Modal = ({ open, onClose, title, children }) => {
+            if (!open) return null;
+            return (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                    <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }} onClick={onClose} />
+                    <Card className="fade-up" style={{ position: 'relative', width: '100%', maxWidth: '480px', maxHeight: '90vh', overflow: 'auto' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '24px', borderBottom: '1px solid var(--border)' }}>
+                            <h2 style={{ fontSize: '20px', fontWeight: '600' }}>{title}</h2>
+                            <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '24px' }}>×</button>
+                        </div>
+                        <div style={{ padding: '24px' }}>{children}</div>
+                    </Card>
+                </div>
+            );
+        };
+
+        // Icons
+        const Icons = {
+            cpu: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 15h3M1 9h3M1 15h3"/></svg>,
+            cart: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>,
+            user: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+            package: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M16.5 9.4l-9-5.19M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/></svg>,
+            grid: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>,
+            users: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+            logout: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>,
+            plus: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>,
+            minus: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M5 12h14"/></svg>,
+            trash: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>,
+            edit: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+            chevron: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>,
+            message: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
+            chart: <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
+        };
+
+        // Product Card
+        const ProductCard = ({ item }) => {
+            const { addToCart } = useContext(CartCtx);
+            const [loading, setLoading] = useState(false);
+            const handleAdd = async () => { setLoading(true); await addToCart(item.id); setLoading(false); };
+            return (
+                <Card className="fade-up product-card" style={{ overflow: 'hidden' }}>
+                    <div className="product-image-container">
+                        {item.image_url ? <img src={item.image_url} alt={item.name} className="product-image" /> : <span style={{ color: 'var(--border)' }}>{Icons.package}</span>}
+                    </div>
+                    <div style={{ padding: '20px' }}>
+                        <h3 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '8px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: '44px' }}>{item.name}</h3>
+                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: '40px' }}>{item.description || 'Нет описания'}</p>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span style={{ fontSize: '22px', fontWeight: '700', background: 'linear-gradient(135deg, var(--primary), var(--secondary))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>${item.price.toFixed(2)}</span>
+                            <Btn size="sm" onClick={handleAdd} loading={loading} disabled={item.quantity === 0}>{item.quantity === 0 ? 'Нет' : 'В корзину'}</Btn>
+                        </div>
+                    </div>
+                </Card>
+            );
+        };
+
+        // Header
+        const Header = ({ page, setPage }) => {
+            const { user, logout } = useContext(AuthCtx);
+            const { cart } = useContext(CartCtx);
+            return (
+                <header style={{ background: 'rgba(10,10,15,0.9)', backdropFilter: 'blur(20px)', position: 'sticky', top: 0, zIndex: 100, borderBottom: '1px solid var(--border)' }}>
+                    <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '72px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer' }} onClick={() => setPage('home')}>
+                            <div style={{ width: '44px', height: '44px', background: 'linear-gradient(135deg, var(--primary), var(--secondary))', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', animation: 'glow 3s ease-in-out infinite' }}>{Icons.cpu}</div>
+                            <span style={{ fontSize: '24px', fontWeight: '700', letterSpacing: '-0.5px' }}>PC Place</span>
+                        </div>
+                        <nav style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
+                            {[{ id: 'home', label: 'Главная' }, { id: 'catalog', label: 'Каталог' }, ...(user ? [{ id: 'orders', label: 'Заказы' }, { id: 'profile', label: 'Профиль' }, ...(user?.role === 'support' || user?.role === 'admin' || user?.role === 'seller' ? [] : [{ id: 'support', label: 'Поддержка' }])] : []), ...(user?.role === 'admin' ? [{ id: 'admin', label: 'Админ', href: '/admin.html' }] : []), ...(user?.role === 'support' || user?.role === 'admin' ? [{ id: 'support-panel', label: 'Поддержка' }] : []), ...(user?.role === 'seller' ? [{ id: 'seller', label: 'Панель продавца', href: '/seller.html' }, { id: 'support', label: 'Поддержка' }] : [])].map(n => (
+                                n.href ? (
+                                    <a key={n.id} href={n.href} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '15px', fontWeight: '400', color: 'var(--text-muted)', fontFamily: 'inherit', textDecoration: 'none' }}>{n.label}</a>
+                                ) : (
+                                <button key={n.id} onClick={() => setPage(n.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '15px', fontWeight: page === n.id ? '600' : '400', color: page === n.id ? 'var(--primary)' : 'var(--text-muted)', fontFamily: 'inherit' }}>{n.label}</button>
+                                )
+                            ))}
+                        </nav>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                            <button onClick={() => setPage('cart')} style={{ position: 'relative', background: 'none', border: 'none', cursor: 'pointer', color: page === 'cart' ? 'var(--primary)' : 'var(--text-muted)', padding: '8px' }}>
+                                {Icons.cart}
+                                {cart.total_items > 0 && <span style={{ position: 'absolute', top: 0, right: 0, background: 'var(--danger)', color: '#fff', fontSize: '11px', fontWeight: '700', width: '18px', height: '18px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{cart.total_items}</span>}
+                            </button>
+                            {user ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <UserName user={user} />
+                                    <Btn variant="ghost" size="sm" onClick={logout}>{Icons.logout}</Btn>
+                                </div>
+                            ) : <Btn onClick={() => setPage('login')}>Войти</Btn>}
+                        </div>
+                    </div>
+                </header>
+            );
+        };
+
+        // Pages
+        const HomePage = ({ setPage }) => {
+            const [categories, setCategories] = useState([]);
+            const [items, setItems] = useState([]);
+            const [loading, setLoading] = useState(true);
+            useEffect(() => {
+                (async () => {
+                    try {
+                        const [cats, its] = await Promise.all([api.get('/categories'), api.get('/items?limit=8')]);
+                        setCategories(cats); setItems(its.items);
+                    } catch (e) { console.error(e); }
+                    setLoading(false);
+                })();
+            }, []);
+            return (
+                <div>
+                    <section style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.15), rgba(6,182,212,0.1))', padding: '100px 24px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+                        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '600px', height: '600px', background: 'radial-gradient(circle, rgba(139,92,246,0.2), transparent 70%)', pointerEvents: 'none' }} />
+                        <div style={{ maxWidth: '800px', margin: '0 auto', position: 'relative' }}>
+                            <h1 style={{ fontSize: 'clamp(36px, 6vw, 64px)', fontWeight: '700', marginBottom: '24px', letterSpacing: '-1px' }}>Комплектующие <br/><span style={{ background: 'linear-gradient(135deg, var(--primary), var(--secondary))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>для вашего ПК</span></h1>
+                            <p style={{ fontSize: '18px', color: 'var(--text-muted)', marginBottom: '40px' }}>Процессоры, видеокарты, материнские платы и всё для идеальной сборки</p>
+                            <Btn size="lg" onClick={() => setPage('catalog')}>Перейти в каталог {Icons.chevron}</Btn>
+                        </div>
+                    </section>
+                    
+                    <section style={{ background: 'var(--bg-card)', padding: '80px 24px' }}>
+                        <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+                            <h2 style={{ fontSize: '32px', fontWeight: '700', marginBottom: '40px' }}>Популярные товары</h2>
+                            {loading ? <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}><span className="loading-spinner" style={{ width: 40, height: 40 }} /></div> : (
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '24px' }}>
+                                    {items.map(item => <ProductCard key={item.id} item={item} />)}
+                                </div>
+                            )}
+                        </div>
+                    </section>
+                </div>
+            );
+        };
+
+        const CatalogPage = () => {
+            const [items, setItems] = useState([]);
+            const [categories, setCategories] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [filters, setFilters] = useState({ category_id: '', search: '', sort_by: 'created_at', sort_order: 'desc' });
+            const [page, setPage] = useState(1);
+            useEffect(() => { 
+                // Check if category filter was set before component mount
+                if (window.catalogCategoryFilter) { 
+                    setFilters(prev => ({ ...prev, category_id: String(window.catalogCategoryFilter) })); 
+                    window.catalogCategoryFilter = null; 
+                } 
+            }, []);
+            const [totalPages, setTotalPages] = useState(1);
+            useEffect(() => { api.get('/categories').then(setCategories).catch(console.error); }, []);
+            useEffect(() => {
+                setLoading(true);
+                const p = new URLSearchParams({ page, limit: 12, sort_by: filters.sort_by, sort_order: filters.sort_order });
+                if (filters.category_id) p.append('category_id', filters.category_id);
+                if (filters.search) p.append('search', filters.search);
+                api.get(`/items?${p}`).then(d => { setItems(d.items); setTotalPages(d.pages); setLoading(false); }).catch(console.error);
+            }, [filters, page]);
+            return (
+                <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '48px 24px' }}>
+                    <h1 style={{ fontSize: '36px', fontWeight: '700', marginBottom: '40px' }}>Каталог товаров</h1>
+                    <Card style={{ padding: '24px', marginBottom: '40px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                            <div><label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>Поиск</label><input type="text" placeholder="Название..." value={filters.search} onChange={e => { setFilters({ ...filters, search: e.target.value }); setPage(1); }} style={{ width: '100%', padding: '12px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text)', fontSize: '14px', fontFamily: 'inherit' }} /></div>
+                            <div><label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>Категория</label><select value={filters.category_id} onChange={e => { setFilters({ ...filters, category_id: e.target.value }); setPage(1); }} style={{ width: '100%', padding: '12px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text)', fontSize: '14px', fontFamily: 'inherit' }}><option value="">Все</option>{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+                            <div><label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>Сортировка</label><select value={`${filters.sort_by}-${filters.sort_order}`} onChange={e => { const [sb, so] = e.target.value.split('-'); setFilters({ ...filters, sort_by: sb, sort_order: so }); }} style={{ width: '100%', padding: '12px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text)', fontSize: '14px', fontFamily: 'inherit' }}><option value="created_at-desc">Новые</option><option value="price-asc">От дешевых</option><option value="price-desc">От дорогих</option></select></div>
+                        </div>
+                    </Card>
+                    {loading ? <div style={{ display: 'flex', justifyContent: 'center', padding: '80px' }}><span className="loading-spinner" style={{ width: 48, height: 48 }} /></div> : items.length === 0 ? <Card style={{ padding: '80px', textAlign: 'center' }}><span style={{ color: 'var(--border)', marginBottom: '16px', display: 'block' }}>{Icons.package}</span><h3 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '8px' }}>Товары не найдены</h3><p style={{ color: 'var(--text-muted)' }}>Измените параметры поиска</p></Card> : (
+                        <>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '24px' }}>{items.map(item => <ProductCard key={item.id} item={item} />)}</div>
+                            {totalPages > 1 && <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '48px' }}><Btn variant="secondary" disabled={page === 1} onClick={() => setPage(p => p - 1)}>Назад</Btn><span style={{ display: 'flex', alignItems: 'center', padding: '0 20px', color: 'var(--text-muted)' }}>Страница {page} из {totalPages}</span><Btn variant="secondary" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>Вперед</Btn></div>}
+                        </>
+                    )}
+                </div>
+            );
+        };
+
+        const CartPage = ({ setPage }) => {
+            const { user } = useContext(AuthCtx);
+            const { cart, loadCart } = useContext(CartCtx);
+            const [loading, setLoading] = useState(false);
+            const [orderLoading, setOrderLoading] = useState(false);
+            if (!user) return <div style={{ maxWidth: '600px', margin: '0 auto', padding: '100px 24px', textAlign: 'center' }}><span style={{ color: 'var(--border)', marginBottom: '24px', display: 'block' }}>{Icons.cart}</span><h2 style={{ fontSize: '28px', fontWeight: '600', marginBottom: '16px' }}>Войдите в аккаунт</h2><p style={{ color: 'var(--text-muted)', marginBottom: '32px' }}>Чтобы добавлять товары в корзину</p><Btn onClick={() => setPage('login')}>Войти</Btn></div>;
+            if (cart.items.length === 0) return <div style={{ maxWidth: '600px', margin: '0 auto', padding: '100px 24px', textAlign: 'center' }}><span style={{ color: 'var(--border)', marginBottom: '24px', display: 'block' }}>{Icons.cart}</span><h2 style={{ fontSize: '28px', fontWeight: '600', marginBottom: '16px' }}>Корзина пуста</h2><p style={{ color: 'var(--text-muted)', marginBottom: '32px' }}>Добавьте товары из каталога</p><Btn onClick={() => setPage('catalog')}>В каталог</Btn></div>;
+            const updateQty = async (itemId, qty) => { setLoading(true); try { await api.put(`/cart/items/${itemId}`, { quantity: qty }); await loadCart(); } catch (e) {} setLoading(false); };
+            const removeItem = async (itemId) => { setLoading(true); try { await api.del(`/cart/items/${itemId}`); await loadCart(); } catch (e) {} setLoading(false); };
+            const createOrder = async () => { setOrderLoading(true); try { await api.post('/orders', {}); await loadCart(); setPage('orders'); } catch (e) {} setOrderLoading(false); };
+            return (
+                <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '48px 24px' }}>
+                    <h1 style={{ fontSize: '36px', fontWeight: '700', marginBottom: '40px' }}>Корзина</h1>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: '32px' }}>
+                        <div>{cart.items.map(ci => (
+                            <Card key={ci.id} style={{ padding: '20px', marginBottom: '16px' }}>
+                                <div style={{ display: 'flex', gap: '20px' }}>
+                                    <div style={{ width: '100px', height: '100px', background: 'var(--bg-elevated)', borderRadius: '12px', overflow: 'hidden', flexShrink: 0 }}>{ci.item.image_url ? <img src={ci.item.image_url} alt={ci.item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--border)' }}>{Icons.package}</div>}</div>
+                                    <div style={{ flex: 1 }}>
+                                        <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px' }}>{ci.item.name}</h3>
+                                        <p style={{ fontSize: '18px', fontWeight: '700', color: 'var(--primary)', marginBottom: '12px' }}>${ci.item.price.toFixed(2)}</p>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <button onClick={() => updateQty(ci.item_id, Math.max(1, ci.quantity - 1))} disabled={loading || ci.quantity <= 1} style={{ width: '32px', height: '32px', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--bg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text)' }}>{Icons.minus}</button>
+                                                <span style={{ width: '40px', textAlign: 'center', fontWeight: '600', fontFamily: 'JetBrains Mono' }}>{ci.quantity}</span>
+                                                <button onClick={() => updateQty(ci.item_id, ci.quantity + 1)} disabled={loading || ci.quantity >= ci.item.quantity} style={{ width: '32px', height: '32px', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--bg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text)' }}>{Icons.plus}</button>
+                                            </div>
+                                            <button onClick={() => removeItem(ci.item_id)} disabled={loading} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', padding: '4px' }}>{Icons.trash}</button>
+                                        </div>
+                                    </div>
+                                    <div style={{ textAlign: 'right' }}><p style={{ fontSize: '20px', fontWeight: '700' }}>${(ci.item.price * ci.quantity).toFixed(2)}</p></div>
+                                </div>
+                            </Card>
+                        ))}</div>
+                        <div><Card style={{ padding: '28px', position: 'sticky', top: '90px' }}>
+                            <h3 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '24px' }}>Итого</h3>
+                            <div style={{ marginBottom: '24px' }}><div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}><span style={{ color: 'var(--text-muted)' }}>Товары ({cart.total_items})</span><span>${cart.total_price.toFixed(2)}</span></div><div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Доставка</span><span style={{ color: 'var(--success)' }}>Бесплатно</span></div></div>
+                            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '24px', marginBottom: '24px' }}><div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ fontSize: '18px', fontWeight: '600' }}>К оплате</span><span style={{ fontSize: '28px', fontWeight: '700', background: 'linear-gradient(135deg, var(--primary), var(--secondary))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>${cart.total_price.toFixed(2)}</span></div></div>
+                            <Btn style={{ width: '100%' }} size="lg" onClick={createOrder} loading={orderLoading}>Оформить заказ</Btn>
+                        </Card></div>
+                    </div>
+                </div>
+            );
+        };
+
+        const OrdersPage = () => {
+            const { user } = useContext(AuthCtx);
+            const [orders, setOrders] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [selectedOrder, setSelectedOrder] = useState(null);
+            const [orderMessages, setOrderMessages] = useState([]);
+            const [chatInput, setChatInput] = useState('');
+            const [chatLoading, setChatLoading] = useState(false);
+            const isSellerOrAdmin = user && (user.role === 'seller' || user.role === 'admin');
+            useEffect(() => { api.get('/orders').then(d => { setOrders(d.orders); setLoading(false); }).catch(console.error); }, []);
+            useEffect(() => {
+                if (selectedOrder && isSellerOrAdmin) {
+                    api.get(`/chat/orders/${selectedOrder}/messages`).then(d => setOrderMessages(d.messages || [])).catch(console.error);
+                } else if (selectedOrder) {
+                    api.get(`/chat/orders/${selectedOrder}/messages`).then(d => setOrderMessages(d.messages || [])).catch(console.error);
+                }
+            }, [selectedOrder, isSellerOrAdmin]);
+            const statusColors = { pending: 'warning', paid: 'primary', shipped: 'primary', delivered: 'success', cancelled: 'danger' };
+            const statusLabels = { pending: 'Ожидает оплаты', paid: 'Оплачен', shipped: 'Отправлен', delivered: 'Доставлен', cancelled: 'Отменен' };
+            const sendOrderMessage = async () => {
+                if (!chatInput.trim() || !selectedOrder || chatLoading) return;
+                setChatLoading(true);
+                try {
+                    const order = orders.find(o => o.id === selectedOrder);
+                    if (!order) return;
+                    
+                    // Determine receiver:
+                    // - If user is seller/admin: send to order owner
+                    // - If user is regular buyer: find seller or admin to send to
+                    let receiverId = null;
+                    if (isSellerOrAdmin) {
+                        receiverId = order.user_id;
+                    } else {
+                        // For buyer: find seller from order items or admin
+                        if (order.items && order.items.length > 0 && order.items[0].item && order.items[0].item.owner_id) {
+                            receiverId = order.items[0].item.owner_id;
+                        } else {
+                            // If no seller, try to find admin (this will be handled by backend)
+                            receiverId = null;
+                        }
+                    }
+                    
+                    await api.post('/chat/messages', {
+                        receiver_id: receiverId,
+                        text: chatInput.trim(),
+                        order_id: selectedOrder
+                    });
+                    setChatInput('');
+                    const msgs = await api.get(`/chat/orders/${selectedOrder}/messages`);
+                    setOrderMessages(msgs.messages || []);
+                } catch (e) {
+                    console.error('Failed to send message:', e);
+                }
+                setChatLoading(false);
+            };
+            
+            const handleOrderChatKeyDown = (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendOrderMessage();
+                }
+            };
+            if (!user) return <div style={{ maxWidth: '600px', margin: '0 auto', padding: '100px 24px', textAlign: 'center' }}><h2>Войдите для просмотра заказов</h2></div>;
+            return (
+                <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '48px 24px' }}>
+                    <h1 style={{ fontSize: '36px', fontWeight: '700', marginBottom: '40px' }}>Мои заказы</h1>
+                    {loading ? <div style={{ display: 'flex', justifyContent: 'center', padding: '80px' }}><span className="loading-spinner" style={{ width: 48, height: 48 }} /></div> : orders.length === 0 ? <Card style={{ padding: '80px', textAlign: 'center' }}><span style={{ color: 'var(--border)', marginBottom: '16px', display: 'block' }}>{Icons.package}</span><h3 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '8px' }}>Нет заказов</h3><p style={{ color: 'var(--text-muted)' }}>Добавьте товары в корзину и оформите заказ</p></Card> : (
+                        <div style={{ display: 'grid', gridTemplateColumns: selectedOrder ? '1fr 400px' : '1fr', gap: '24px' }}>
+                        <div>{orders.map(o => (
+                                <Card key={o.id} style={{ padding: '24px', marginBottom: '16px', cursor: 'pointer' }} onClick={() => setSelectedOrder(o.id)}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '16px' }}>
+                                    <div><h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '4px' }}>Заказ #{o.id}</h3><p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>{new Date(o.created_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}</p></div>
+                                    <Badge variant={statusColors[o.status]}>{statusLabels[o.status]}</Badge>
+                                </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
+                                        <span style={{ color: 'var(--text-muted)' }}>Сумма</span>
+                                        <span style={{ fontSize: '24px', fontWeight: '700', color: 'var(--primary)' }}>${o.total_price.toFixed(2)}</span>
+                                    </div>
+                            </Card>
+                        ))}</div>
+                            {selectedOrder && (
+                                <Card style={{ height: '600px', display: 'flex', flexDirection: 'column' }}>
+                                    <div style={{ padding: '20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <h3 style={{ fontSize: '18px', fontWeight: '600' }}>Чат по заказу #{selectedOrder}</h3>
+                                        <button onClick={() => setSelectedOrder(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '24px' }}>×</button>
+                                    </div>
+                                    <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                        {orderMessages.length === 0 ? (
+                                            <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px' }}>Нет сообщений</div>
+                                        ) : (
+                                            orderMessages.map(msg => (
+                                                <div key={msg.id} style={{ display: 'flex', justifyContent: msg.sender_id === user.id ? 'flex-end' : 'flex-start' }}>
+                                                    <div style={{ maxWidth: '80%', padding: '10px 14px', background: msg.sender_id === user.id ? 'linear-gradient(135deg, var(--primary), var(--primary-dark))' : 'var(--bg-elevated)', borderRadius: '12px', color: msg.sender_id === user.id ? '#fff' : 'var(--text)' }}>
+                                                        <UserName user={msg.sender_username} role={msg.sender_role} style={{ marginBottom: '4px', opacity: 0.9 }} />
+                                                        <p style={{ fontSize: '14px' }}>{msg.text}</p>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                    <div style={{ padding: '16px', borderTop: '1px solid var(--border)', display: 'flex', gap: '8px' }}>
+                                        <input type="text" value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && sendOrderMessage()} placeholder="Сообщение..." style={{ flex: 1, padding: '10px 14px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text)', fontSize: '14px', outline: 'none', fontFamily: 'inherit' }} />
+                                        <Btn size="sm" onClick={sendOrderMessage} disabled={chatLoading || !chatInput.trim()}>{Icons.message}</Btn>
+                                    </div>
+                                </Card>
+                            )}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const LoginPage = ({ setPage }) => {
+            const { login } = useContext(AuthCtx);
+            const [identifier, setIdentifier] = useState('');
+            const [password, setPassword] = useState('');
+            const [error, setError] = useState('');
+            const [loading, setLoading] = useState(false);
+            const handleSubmit = async e => { e.preventDefault(); setError(''); setLoading(true); try { await login(identifier, password); } catch (e) { setError(e.message); } setLoading(false); };
+            return (
+                <div style={{ maxWidth: '420px', margin: '0 auto', padding: '80px 24px' }}>
+                    <Card style={{ padding: '48px' }}>
+                        <h1 style={{ fontSize: '32px', fontWeight: '700', textAlign: 'center', marginBottom: '12px' }}>Вход</h1>
+                        <p style={{ color: 'var(--text-muted)', textAlign: 'center', marginBottom: '40px' }}>Войдите для покупок</p>
+                        {error && <div style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--danger)', padding: '14px 18px', borderRadius: '10px', marginBottom: '24px', fontSize: '14px' }}>{error}</div>}
+                        <form onSubmit={handleSubmit}>
+                            <Input label="Email или логин" type="text" value={identifier} onChange={e => setIdentifier(e.target.value)} placeholder="your@email.com или username" required />
+                            <Input label="Пароль" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required />
+                            <Btn type="submit" style={{ width: '100%', marginTop: '8px' }} loading={loading}>Войти</Btn>
+                        </form>
+                        <p style={{ marginTop: '28px', textAlign: 'center', fontSize: '14px', color: 'var(--text-muted)' }}>Нет аккаунта? <button onClick={() => setPage('register')} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontWeight: '600', fontFamily: 'inherit' }}>Регистрация</button></p>
+                    </Card>
+                </div>
+            );
+        };
+
+        const RegisterPage = ({ setPage }) => {
+            const { register } = useContext(AuthCtx);
+            const [email, setEmail] = useState('');
+            const [username, setUsername] = useState('');
+            const [password, setPassword] = useState('');
+            const [error, setError] = useState('');
+            const [loading, setLoading] = useState(false);
+            const handleSubmit = async e => { e.preventDefault(); setError(''); setLoading(true); try { await register(email, username, password); } catch (e) { setError(e.message); } setLoading(false); };
+            return (
+                <div style={{ maxWidth: '420px', margin: '0 auto', padding: '80px 24px' }}>
+                    <Card style={{ padding: '48px' }}>
+                        <h1 style={{ fontSize: '32px', fontWeight: '700', textAlign: 'center', marginBottom: '12px' }}>Регистрация</h1>
+                        <p style={{ color: 'var(--text-muted)', textAlign: 'center', marginBottom: '40px' }}>Создайте аккаунт</p>
+                        {error && <div style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--danger)', padding: '14px 18px', borderRadius: '10px', marginBottom: '24px', fontSize: '14px' }}>{error}</div>}
+                        <form onSubmit={handleSubmit}>
+                            <Input label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@email.com" required />
+                            <Input label="Имя пользователя" type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder="username" required />
+                            <Input label="Пароль" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Минимум 8 символов" required minLength={8} />
+                            <Btn type="submit" style={{ width: '100%', marginTop: '8px' }} loading={loading}>Создать</Btn>
+                        </form>
+                        <p style={{ marginTop: '28px', textAlign: 'center', fontSize: '14px', color: 'var(--text-muted)' }}>Уже есть аккаунт? <button onClick={() => setPage('login')} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontWeight: '600', fontFamily: 'inherit' }}>Войти</button></p>
+                    </Card>
+                </div>
+            );
+        };
+
+        // Support Chat Page
+        const SupportChatPage = () => {
+            const { user, showToast } = useContext(AuthCtx);
+            const [messages, setMessages] = useState([]);
+            const [inputText, setInputText] = useState('');
+            const [loading, setLoading] = useState(true);
+            const [sending, setSending] = useState(false);
+            const [ws, setWs] = useState(null);
+            const [supportId, setSupportId] = useState(null);
+            const [supportOnline, setSupportOnline] = useState(false);
+            const [showScrollButton, setShowScrollButton] = useState(false);
+            const messagesEndRef = React.useRef(null);
+            const messagesContainerRef = React.useRef(null);
+            
+            const scrollToBottom = (smooth = true) => {
+                if (messagesContainerRef.current) {
+                    messagesContainerRef.current.scrollTo({
+                        top: messagesContainerRef.current.scrollHeight,
+                        behavior: smooth ? 'smooth' : 'auto'
+                    });
+                }
+            };
+            
+            // Обработчик скролла для показа/скрытия кнопки
+            const handleScroll = () => {
+                if (messagesContainerRef.current) {
+                    const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+                    const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+                    setShowScrollButton(!isNearBottom);
+                }
+            };
+            
+            useEffect(() => {
+                // Скролл к новым сообщениям только если пользователь уже внизу
+                if (messagesContainerRef.current) {
+                    const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+                    const isNearBottom = scrollHeight - scrollTop - clientHeight < 150;
+                    if (isNearBottom) {
+                        scrollToBottom();
+                    } else {
+                        setShowScrollButton(true);
+                    }
+                }
+            }, [messages]);
+            
+            useEffect(() => {
+                if (!user) return;
+                
+                let statusInterval;
+                
+                // Check support status
+                (async () => {
+                    try {
+                        const status = await api.get('/chat/support/status');
+                        setSupportOnline(status.is_online || false);
+                    } catch (e) {
+                        console.error('Failed to check support status:', e);
+                    }
+                })();
+                
+                // Update support status every 10 seconds (уменьшено для более быстрого обновления)
+                statusInterval = setInterval(async () => {
+                    try {
+                        const status = await api.get('/chat/support/status');
+                        setSupportOnline(status.is_online || false);
+                    } catch (e) {
+                        console.error('Failed to check support status:', e);
+                    }
+                }, 10000);
+                
+                // Connect to support
+                (async () => {
+                    try {
+                        console.log('Connecting to support...');
+                        setLoading(true);
+                        // POST request with empty body, order_id is optional query parameter
+                        const response = await api.post('/chat/support/connect', {});
+                        console.log('Support connected:', response);
+                        
+                        if (!response || !response.support_user_id) {
+                            console.error('Invalid response from support connect:', response);
+                            throw new Error('Support user ID not received');
+                        }
+                        
+                        setSupportId(response.support_user_id);
+                        
+                        // Load messages
+                        console.log('Loading messages for support user:', response.support_user_id);
+                        try {
+                            const msgs = await api.get(`/chat/conversations/${response.support_user_id}/messages`);
+                            console.log('Messages loaded:', msgs);
+                            setMessages(msgs.messages || []);
+                        } catch (msgError) {
+                            console.error('Failed to load messages:', msgError);
+                            setMessages([]);
+                        }
+                        setLoading(false);
+                        setTimeout(() => scrollToBottom(false), 100);
+                        
+                        // Connect WebSocket
+                        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                        const wsUrl = `${protocol}//${window.location.host}/api/v1/chat/ws/${user.id}`;
+                        const websocket = new WebSocket(wsUrl);
+                        
+                        websocket.onopen = () => {
+                            console.log('WebSocket connected');
+                        };
+                        
+                        websocket.onmessage = (event) => {
+                            const data = JSON.parse(event.data);
+                            if (data.type === 'new_message') {
+                                setMessages(prev => {
+                                    // Проверяем, нет ли уже такого сообщения
+                                    if (prev.some(m => m.id === data.message.id)) {
+                                        return prev;
+                                    }
+                                    return [...prev, data.message];
+                                });
+                            }
+                            // Обновление статуса онлайн через WebSocket
+                            if (data.type === 'status_update') {
+                                setSupportOnline(data.is_online || false);
+                            }
+                        };
+                        
+                        websocket.onerror = (error) => {
+                            console.error('WebSocket error:', error);
+                        };
+                        
+                        websocket.onclose = () => {
+                            console.log('WebSocket disconnected');
+                        };
+                        
+                        setWs(websocket);
+                        
+                        return () => {
+                            websocket.close();
+                            clearInterval(statusInterval);
+                        };
+                    } catch (e) {
+                        console.error('Failed to connect to support:', e);
+                        if (showToast) {
+                            showToast(e.message || 'Не удалось подключиться к поддержке. Попробуйте позже.', 'error');
+                        }
+                        setLoading(false);
+                        setSupportId(null);
+                    }
+                })();
+                
+                return () => {
+                    if (statusInterval) clearInterval(statusInterval);
+                };
+            }, [user]);
+            
+            const sendMessage = async () => {
+                console.log('sendMessage called', { inputText: inputText.trim(), supportId, sending });
+                if (!inputText.trim() || !supportId || sending) {
+                    console.log('Cannot send:', { inputText: inputText.trim(), supportId, sending });
+                    return;
+                }
+                
+                console.log('Sending message...', { receiver_id: supportId, text: inputText.trim() });
+                setSending(true);
+                try {
+                    const message = await api.post('/chat/messages', {
+                        receiver_id: supportId,
+                        text: inputText.trim()
+                    });
+                    console.log('Message sent:', message);
+                    setMessages(prev => [...prev, message]);
+                    setInputText('');
+                } catch (e) {
+                    console.error('Failed to send message:', e);
+                    if (showToast) showToast(e.message || 'Ошибка отправки сообщения', 'error');
+                } finally {
+                    setSending(false);
+                }
+            };
+            
+            const handleKeyDown = (e) => {
+                console.log('Key pressed in SupportChatPage:', e.key);
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    console.log('Enter pressed, calling sendMessage');
+                    sendMessage();
+                }
+            };
+            
+            const handleButtonClick = (e) => {
+                console.log('Button clicked in SupportChatPage', { inputText, supportId, sending });
+                e.preventDefault();
+                e.stopPropagation();
+                sendMessage();
+            };
+            
+            if (!user) {
+                return <div style={{ maxWidth: '600px', margin: '0 auto', padding: '100px 24px', textAlign: 'center' }}>
+                    <h2>Войдите для использования поддержки</h2>
+                </div>;
+            }
+            
+            // Redirect support and admin to support panel (but allow sellers to use support chat)
+            if (user.role === 'support' || user.role === 'admin') {
+                return <div style={{ maxWidth: '600px', margin: '0 auto', padding: '100px 24px', textAlign: 'center' }}>
+                    <h2>Используйте панель поддержки</h2>
+                    <p style={{ color: 'var(--text-muted)', marginTop: '12px' }}>Для сотрудников поддержки доступна специальная панель</p>
+                </div>;
+            }
+            
+            return (
+                <div style={{ maxWidth: '900px', margin: '0 auto', padding: '48px 24px' }}>
+                    <h1 style={{ fontSize: '36px', fontWeight: '700', marginBottom: '32px' }}>Поддержка</h1>
+                    {loading ? (
+                        <Card style={{ padding: '48px', textAlign: 'center' }}>
+                            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+                                <span className="loading-spinner" style={{ width: 48, height: 48 }} />
+                            </div>
+                            <p style={{ color: 'var(--text-muted)', fontSize: '16px' }}>Подключение к поддержке...</p>
+                        </Card>
+                    ) : !supportId ? (
+                        <Card style={{ padding: '48px', textAlign: 'center' }}>
+                            <p style={{ color: 'var(--text-muted)', fontSize: '16px', marginBottom: '16px' }}>Не удалось подключиться к поддержке</p>
+                            <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '24px' }}>Пожалуйста, попробуйте обновить страницу или обратитесь позже</p>
+                            <Btn onClick={() => window.location.reload()}>Обновить страницу</Btn>
+                        </Card>
+                    ) : (
+                    <Card style={{ height: '600px', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ padding: '20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ width: '40px', height: '40px', background: 'linear-gradient(135deg, var(--primary), var(--secondary))', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                                {Icons.user}
+                            </div>
+                            <div>
+                                <h3 style={{ fontSize: '16px', fontWeight: '600' }}>Служба поддержки</h3>
+                                <p style={{ fontSize: '13px', color: supportOnline ? 'var(--success)' : 'var(--text-muted)' }}>
+                                    {supportOnline ? '● Онлайн' : '○ Оффлайн'}
+                                </p>
+                            </div>
+                        </div>
+                        <div 
+                            ref={messagesContainerRef}
+                            onScroll={handleScroll}
+                            style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', position: 'relative' }}
+                        >
+                            {messages.length === 0 ? (
+                                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px' }}>
+                                    <p>Начните диалог с поддержкой</p>
+                                </div>
+                            ) : (
+                                messages.map(msg => {
+                                    const isOwn = msg.sender_id === user.id;
+                                    return (
+                                    <div key={msg.id} style={{ display: 'flex', justifyContent: isOwn ? 'flex-end' : 'flex-start' }}>
+                                        <div style={{ maxWidth: '70%', padding: '12px 16px', background: isOwn ? 'linear-gradient(135deg, var(--primary), var(--primary-dark))' : 'var(--bg-elevated)', borderRadius: '16px', color: isOwn ? '#fff' : 'var(--text)' }}>
+                                            <UserName user={msg.sender_username} role={msg.sender_role} isOwnMessage={isOwn} style={{ marginBottom: '4px' }} />
+                                            <p style={{ fontSize: '15px', lineHeight: '1.5' }}>{msg.text}</p>
+                                            <p style={{ fontSize: '11px', marginTop: '6px', opacity: 0.7 }}>{formatTime(msg.created_at)}</p>
+                                        </div>
+                                    </div>
+                                    );
+                                })
+                            )}
+                            <div ref={messagesEndRef} />
+                        </div>
+                        {/* Кнопка прокрутки вниз */}
+                        {showScrollButton && (
+                            <button
+                                onClick={() => scrollToBottom()}
+                                style={{
+                                    position: 'absolute',
+                                    bottom: '100px',
+                                    right: '40px',
+                                    width: '44px',
+                                    height: '44px',
+                                    borderRadius: '50%',
+                                    background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    boxShadow: '0 4px 20px rgba(139, 92, 246, 0.4)',
+                                    transition: 'all 0.3s ease',
+                                    zIndex: 10
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1)'}
+                                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                            >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
+                                    <path d="M12 5v14M5 12l7 7 7-7"/>
+                                </svg>
+                            </button>
+                        )}
+                        <div style={{ padding: '20px', borderTop: '1px solid var(--border)', display: 'flex', gap: '12px' }}>
+                            <input
+                                type="text"
+                                value={inputText}
+                                onChange={e => setInputText(e.target.value)}
+                                onKeyDown={handleKeyDown}
+                                placeholder="Введите сообщение..."
+                                style={{ flex: 1, padding: '14px 18px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '12px', color: 'var(--text)', fontSize: '15px', outline: 'none', fontFamily: 'inherit' }}
+                            />
+                            <Btn onClick={handleButtonClick} disabled={sending || !inputText.trim() || !supportId}>
+                                {Icons.message}
+                            </Btn>
+                        </div>
+                    </Card>
+                    )}
+                </div>
+            );
+        };
+
+        // Support Panel Page (for support staff and admins)
+        const SupportPanelPage = () => {
+            const { user, showToast } = useContext(AuthCtx);
+            const [conversations, setConversations] = useState([]);
+            const [selectedUserId, setSelectedUserId] = useState(null);
+            const [messages, setMessages] = useState([]);
+            const [inputText, setInputText] = useState('');
+            const [loading, setLoading] = useState(true);
+            const [sending, setSending] = useState(false);
+            const [ws, setWs] = useState(null);
+            const [showScrollButton, setShowScrollButton] = useState(false);
+            const messagesEndRef = React.useRef(null);
+            const messagesContainerRef = React.useRef(null);
+            
+            const scrollToBottom = (smooth = true) => {
+                if (messagesContainerRef.current) {
+                    messagesContainerRef.current.scrollTo({
+                        top: messagesContainerRef.current.scrollHeight,
+                        behavior: smooth ? 'smooth' : 'auto'
+                    });
+                }
+            };
+            
+            // Обработчик скролла для показа/скрытия кнопки
+            const handleScroll = () => {
+                if (messagesContainerRef.current) {
+                    const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+                    const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+                    setShowScrollButton(!isNearBottom);
+                }
+            };
+            
+            useEffect(() => {
+                // Скролл к новым сообщениям только если пользователь уже внизу
+                if (messagesContainerRef.current && messages.length > 0) {
+                    const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+                    const isNearBottom = scrollHeight - scrollTop - clientHeight < 150;
+                    if (isNearBottom) {
+                        scrollToBottom();
+                    } else {
+                        setShowScrollButton(true);
+                    }
+                }
+            }, [messages]);
+            
+            // Ref для хранения текущего selectedUserId в WebSocket callback
+            const selectedUserIdRef = React.useRef(selectedUserId);
+            useEffect(() => {
+                selectedUserIdRef.current = selectedUserId;
+            }, [selectedUserId]);
+            
+            useEffect(() => {
+                if (!user || (user.role !== 'support' && user.role !== 'admin')) return;
+                
+                // Load conversations
+                const loadConversations = async () => {
+                    try {
+                        const data = await api.get('/chat/support/conversations');
+                        setConversations(data.conversations || []);
+                        setLoading(false);
+                    } catch (e) {
+                        console.error('Failed to load conversations:', e);
+                        setLoading(false);
+                    }
+                };
+                
+                loadConversations();
+                
+                // Connect WebSocket сразу при загрузке (не ждем выбора диалога)
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}/api/v1/chat/ws/${user.id}`;
+                const websocket = new WebSocket(wsUrl);
+                
+                websocket.onopen = () => {
+                    console.log('WebSocket connected for support panel');
+                };
+                
+                websocket.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'new_message') {
+                        console.log('New message received via WebSocket:', data.message);
+                        
+                        // Обновляем список диалогов при получении нового сообщения
+                        loadConversations();
+                        
+                        // Если выбран диалог с этим пользователем - добавляем сообщение
+                        const currentSelectedId = selectedUserIdRef.current;
+                        if (currentSelectedId && (data.message.sender_id === currentSelectedId || data.message.receiver_id === currentSelectedId)) {
+                            setMessages(prev => {
+                                // Проверяем, нет ли уже такого сообщения
+                                if (prev.some(m => m.id === data.message.id)) {
+                                    return prev;
+                                }
+                                return [...prev, data.message];
+                            });
+                        }
+                    }
+                };
+                
+                websocket.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                };
+                
+                websocket.onclose = () => {
+                    console.log('WebSocket disconnected');
+                };
+                
+                setWs(websocket);
+                
+                // Auto-refresh conversations every 5 seconds как fallback
+                const interval = setInterval(loadConversations, 5000);
+                
+                return () => {
+                    websocket.close();
+                    clearInterval(interval);
+                };
+            }, [user]);
+            
+            useEffect(() => {
+                if (!selectedUserId) return;
+                
+                // Load messages for selected user (только при первой загрузке)
+                const loadMessages = async () => {
+                    try {
+                        const msgs = await api.get(`/chat/conversations/${selectedUserId}/messages`);
+                        setMessages(msgs.messages || []);
+                        setTimeout(() => scrollToBottom(false), 100);
+                    } catch (e) {
+                        console.error('Failed to load messages:', e);
+                    }
+                };
+                
+                loadMessages();
+                
+                // НЕ обновляем сообщения по интервалу - используем только WebSocket
+                // Это предотвращает перезапись локально добавленных сообщений
+            }, [selectedUserId]);
+            
+            const sendMessage = async () => {
+                console.log('sendMessage called in SupportPanelPage', { inputText: inputText.trim(), selectedUserId, sending });
+                if (!inputText.trim() || !selectedUserId || sending) {
+                    console.log('Cannot send:', { inputText: inputText.trim(), selectedUserId, sending });
+                    return;
+                }
+                
+                console.log('Sending message...', { receiver_id: selectedUserId, text: inputText.trim() });
+                setSending(true);
+                const messageText = inputText.trim();
+                setInputText(''); // Очищаем поле ввода сразу
+                
+                try {
+                    const message = await api.post('/chat/messages', {
+                        receiver_id: selectedUserId,
+                        text: messageText
+                    });
+                    console.log('Message sent:', message);
+                    
+                    // Добавляем сообщение только если его еще нет (WebSocket мог уже добавить)
+                    setMessages(prev => {
+                        if (prev.some(m => m.id === message.id)) {
+                            return prev;
+                        }
+                        return [...prev, message];
+                    });
+                    
+                    // Refresh conversations to update last message
+                    const data = await api.get('/chat/support/conversations');
+                    setConversations(data.conversations || []);
+                } catch (e) {
+                    console.error('Failed to send message:', e);
+                    setInputText(messageText); // Восстанавливаем текст при ошибке
+                    if (showToast) showToast(e.message || 'Ошибка отправки сообщения', 'error');
+                } finally {
+                    setSending(false);
+                }
+            };
+            
+            const handleKeyDown = (e) => {
+                console.log('Key pressed in SupportPanelPage:', e.key);
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    console.log('Enter pressed, calling sendMessage');
+                    sendMessage();
+                }
+            };
+            
+            const handleButtonClick = (e) => {
+                console.log('Button clicked in SupportPanelPage', { inputText, selectedUserId, sending });
+                e.preventDefault();
+                e.stopPropagation();
+                sendMessage();
+            };
+            
+            if (!user || (user.role !== 'support' && user.role !== 'admin')) {
+                return <div style={{ maxWidth: '600px', margin: '0 auto', padding: '100px 24px', textAlign: 'center' }}>
+                    <h2>Доступ запрещен</h2>
+                </div>;
+            }
+            
+            if (loading) {
+                return <div style={{ display: 'flex', justifyContent: 'center', padding: '80px' }}>
+                    <span className="loading-spinner" style={{ width: 48, height: 48 }} />
+                </div>;
+            }
+            
+            const selectedConversation = conversations.find(c => c.user_id === selectedUserId);
+            
+            return (
+                <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '48px 24px' }}>
+                    <h1 style={{ fontSize: '36px', fontWeight: '700', marginBottom: '32px' }}>Панель поддержки</h1>
+                    <div style={{ display: 'flex', gap: '24px', height: '700px' }}>
+                        {/* Conversations List */}
+                        <Card style={{ width: '350px', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+                            <div style={{ padding: '20px', borderBottom: '1px solid var(--border)' }}>
+                                <h2 style={{ fontSize: '20px', fontWeight: '600' }}>Пользователи</h2>
+                            </div>
+                            <div style={{ flex: 1, overflowY: 'auto' }}>
+                                {conversations.length === 0 ? (
+                                    <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                        <p>Нет активных диалогов</p>
+                                    </div>
+                                ) : (
+                                    conversations.map(conv => (
+                                        <button
+                                            key={conv.user_id}
+                                            onClick={() => setSelectedUserId(conv.user_id)}
+                                            style={{
+                                                width: '100%',
+                                                padding: '16px 20px',
+                                                border: 'none',
+                                                borderBottom: '1px solid var(--border)',
+                                                background: selectedUserId === conv.user_id ? 'var(--bg-elevated)' : 'transparent',
+                                                cursor: 'pointer',
+                                                textAlign: 'left',
+                                                transition: 'background 0.2s',
+                                                fontFamily: 'inherit'
+                                            }}
+                                            onMouseEnter={e => {
+                                                if (selectedUserId !== conv.user_id) {
+                                                    e.currentTarget.style.background = 'var(--bg-elevated)';
+                                                }
+                                            }}
+                                            onMouseLeave={e => {
+                                                if (selectedUserId !== conv.user_id) {
+                                                    e.currentTarget.style.background = 'transparent';
+                                                }
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                <div style={{ width: '48px', height: '48px', background: 'linear-gradient(135deg, var(--primary), var(--secondary))', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '18px', fontWeight: '600' }}>
+                                                    {conv.username.charAt(0).toUpperCase()}
+                                                </div>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                                        <UserName user={conv.username} role={conv.role} />
+                                                        {conv.unread_count > 0 && (
+                                                            <span style={{ background: 'var(--primary)', color: '#fff', borderRadius: '12px', padding: '2px 8px', fontSize: '11px', fontWeight: '600' }}>
+                                                                {conv.unread_count}
+                                                            </span>
+                    )}
+                </div>
+                                                    {conv.last_message && (
+                                                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                            {conv.last_message.text}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </button>
+                                    ))
+                                )}
+                            </div>
+                        </Card>
+                        
+                        {/* Chat Area */}
+                        <Card style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+                            {selectedUserId ? (
+                                <>
+                                    <div style={{ padding: '20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <div style={{ width: '40px', height: '40px', background: 'linear-gradient(135deg, var(--primary), var(--secondary))', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '16px', fontWeight: '600' }}>
+                                                {selectedConversation?.username.charAt(0).toUpperCase()}
+                                            </div>
+                <div>
+                                                <UserName user={selectedConversation?.username} role={selectedConversation?.role} />
+                                                <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{selectedConversation?.email}</p>
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <Btn size="sm" variant="secondary" onClick={async () => {
+                                                if (confirm('Пометить чат как решенный? Чат будет архивирован.')) {
+                                                    try {
+                                                        await api.post(`/chat/conversations/${selectedUserId}/resolve`);
+                                                        if (showToast) showToast('Чат помечен как решенный', 'success');
+                                                        const data = await api.get('/chat/support/conversations');
+                                                        setConversations(data.conversations || []);
+                                                        setSelectedUserId(null);
+                                                    } catch (e) {
+                                                        if (showToast) showToast(e.message || 'Ошибка', 'error');
+                                                    }
+                                                }
+                                            }}>
+                                                Решено
+                                            </Btn>
+                                            <Btn size="sm" variant="danger" onClick={async () => {
+                                                if (confirm('Удалить чат? Это действие нельзя отменить.')) {
+                                                    try {
+                                                        await api.del(`/chat/conversations/${selectedUserId}`);
+                                                        if (showToast) showToast('Чат удален', 'success');
+                                                        const data = await api.get('/chat/support/conversations');
+                                                        setConversations(data.conversations || []);
+                                                        setSelectedUserId(null);
+                                                    } catch (e) {
+                                                        if (showToast) showToast(e.message || 'Ошибка', 'error');
+                                                    }
+                                                }
+                                            }}>
+                                                {Icons.trash}
+                                            </Btn>
+                                        </div>
+                                    </div>
+                                    <div 
+                                        ref={messagesContainerRef}
+                                        onScroll={handleScroll}
+                                        style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}
+                                    >
+                                        {messages.length === 0 ? (
+                                            <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px' }}>
+                                                <p>Начните диалог</p>
+                                            </div>
+                                        ) : (
+                                            messages.map(msg => {
+                                                const isOwn = msg.sender_id === user.id;
+                                                const isSupport = msg.sender_role === 'support';
+                                                const isAdmin = msg.sender_role === 'admin';
+                                                const isStaff = isSupport || isAdmin;
+                                                
+                                                // Определяем стиль фона в зависимости от роли отправителя
+                                                let bgStyle;
+                                                if (isOwn) {
+                                                    bgStyle = 'linear-gradient(135deg, var(--primary), var(--primary-dark))';
+                                                } else if (isAdmin) {
+                                                    bgStyle = 'linear-gradient(135deg, rgba(239,68,68,0.3), rgba(239,68,68,0.15))';
+                                                } else if (isSupport) {
+                                                    bgStyle = 'linear-gradient(135deg, rgba(139,92,246,0.3), rgba(139,92,246,0.15))';
+                                                } else {
+                                                    bgStyle = 'var(--bg-elevated)';
+                                                }
+                                                
+                                                // Определяем стиль границы для лучшего выделения
+                                                let borderStyle = 'none';
+                                                if (!isOwn && isAdmin) {
+                                                    borderStyle = '2px solid rgba(239,68,68,0.5)';
+                                                } else if (!isOwn && isSupport) {
+                                                    borderStyle = '2px solid rgba(139,92,246,0.5)';
+                                                } else if (!isOwn && !isStaff) {
+                                                    borderStyle = '2px solid rgba(6,182,212,0.3)';
+                                                }
+                                                
+                                                return (
+                                                <div key={msg.id} style={{ display: 'flex', justifyContent: isOwn ? 'flex-end' : 'flex-start' }}>
+                                                    <div style={{ 
+                                                        maxWidth: '70%', 
+                                                        padding: '12px 16px', 
+                                                        background: bgStyle, 
+                                                        borderRadius: '16px', 
+                                                        color: isOwn ? '#fff' : 'var(--text)',
+                                                        border: borderStyle
+                                                    }}>
+                                                        <UserName user={msg.sender_username} role={msg.sender_role} isOwnMessage={isOwn} style={{ marginBottom: '4px' }} />
+                                                        <p style={{ fontSize: '15px', lineHeight: '1.5' }}>{msg.text}</p>
+                                                        <p style={{ fontSize: '11px', marginTop: '6px', opacity: 0.7 }}>{formatTime(msg.created_at)}</p>
+                                                    </div>
+                                                </div>
+                                                );
+                                            })
+                                        )}
+                                        <div ref={messagesEndRef} />
+                                    </div>
+                                    {/* Кнопка прокрутки вниз */}
+                                    {showScrollButton && (
+                                        <button
+                                            onClick={() => scrollToBottom()}
+                                            style={{
+                                                position: 'absolute',
+                                                bottom: '100px',
+                                                right: '30px',
+                                                width: '44px',
+                                                height: '44px',
+                                                borderRadius: '50%',
+                                                background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                boxShadow: '0 4px 20px rgba(139, 92, 246, 0.4)',
+                                                transition: 'all 0.3s ease',
+                                                zIndex: 10
+                                            }}
+                                            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1)'}
+                                            onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                                        >
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
+                                                <path d="M12 5v14M5 12l7 7 7-7"/>
+                                            </svg>
+                                        </button>
+                                    )}
+                                    <div style={{ padding: '20px', borderTop: '1px solid var(--border)', display: 'flex', gap: '12px' }}>
+                                        <input
+                                            type="text"
+                                            value={inputText}
+                                            onChange={e => setInputText(e.target.value)}
+                                            onKeyDown={handleKeyDown}
+                                            placeholder="Введите сообщение..."
+                                            style={{ flex: 1, padding: '14px 18px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '12px', color: 'var(--text)', fontSize: '15px', outline: 'none', fontFamily: 'inherit' }}
+                                        />
+                                        <Btn onClick={handleButtonClick} disabled={sending || !inputText.trim() || !selectedUserId}>
+                                            {Icons.message}
+                                        </Btn>
+                                    </div>
+                                </>
+                            ) : (
+                                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                                    <p>Выберите пользователя для начала диалога</p>
+                                </div>
+                            )}
+                        </Card>
+                    </div>
+                </div>
+            );
+        };
+
+        // Profile Page
+        const ProfilePage = () => {
+            const { user } = useContext(AuthCtx);
+            const [profile, setProfile] = useState(null);
+            const [loading, setLoading] = useState(true);
+            
+            useEffect(() => {
+                if (user) {
+                    (async () => {
+                        try {
+                            const data = await api.get('/auth/me/profile');
+                            setProfile(data);
+                        } catch (e) {
+                            console.error('Failed to load profile:', e);
+                        } finally {
+                            setLoading(false);
+                        }
+                    })();
+                }
+            }, [user]);
+            
+            if (loading) {
+                return <div style={{ display: 'flex', justifyContent: 'center', padding: '80px' }}>
+                    <span className="loading-spinner" style={{ width: 48, height: 48 }} />
+                </div>;
+            }
+            
+            if (!profile) {
+                return <div style={{ maxWidth: '600px', margin: '0 auto', padding: '100px 24px', textAlign: 'center' }}>
+                    <h2>Ошибка загрузки профиля</h2>
+                </div>;
+            }
+            
+            const createdDate = new Date(profile.created_at).toLocaleDateString('ru-RU', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            
+            return (
+                <div style={{ maxWidth: '900px', margin: '0 auto', padding: '48px 24px' }}>
+                    <h1 style={{ fontSize: '36px', fontWeight: '700', marginBottom: '32px' }}>Профиль</h1>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
+                        <Card style={{ padding: '32px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+                                <div style={{ width: '64px', height: '64px', background: 'linear-gradient(135deg, var(--primary), var(--secondary))', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '24px', fontWeight: '600' }}>
+                                    {user.username.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                    <h2 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '4px' }}>{user.username}</h2>
+                                    <Badge variant="primary">{profile.role_prefix}</Badge>
+                                </div>
+                            </div>
+                            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '20px' }}>
+                                <div style={{ marginBottom: '16px' }}>
+                                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '4px' }}>Email</p>
+                                    <p style={{ fontSize: '15px', fontWeight: '500' }}>{user.email}</p>
+                                </div>
+                                <div style={{ marginBottom: '16px' }}>
+                                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '4px' }}>Дата регистрации</p>
+                                    <p style={{ fontSize: '15px', fontWeight: '500' }}>{createdDate}</p>
+                                </div>
+                            </div>
+                        </Card>
+                        
+                        <Card style={{ padding: '32px' }}>
+                            <h3 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '24px' }}>Статистика</h3>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'var(--bg-elevated)', borderRadius: '12px' }}>
+                                    <div>
+                                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '4px' }}>Заказов</p>
+                                        <p style={{ fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, var(--primary), var(--secondary))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{profile.orders_count}</p>
+                                    </div>
+                                    {Icons.package}
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'var(--bg-elevated)', borderRadius: '12px' }}>
+                                    <div>
+                                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '4px' }}>Товаров куплено</p>
+                                        <p style={{ fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, var(--primary), var(--secondary))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{profile.items_purchased}</p>
+                                    </div>
+                                    {Icons.cart}
+                                </div>
+                                {(user.role === 'seller' || user.role === 'admin') && (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'var(--bg-elevated)', borderRadius: '12px' }}>
+                                        <div>
+                                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '4px' }}>Товаров выставлено</p>
+                                            <p style={{ fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, var(--primary), var(--secondary))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{profile.seller_items_count}</p>
+                                        </div>
+                                        {Icons.grid}
+                                    </div>
+                                )}
+                            </div>
+                        </Card>
+                    </div>
+                </div>
+            );
+        };
+
+        // Seller Panel removed - see seller.html
+
+        // Footer
+        const Footer = () => (
+            <footer style={{ background: 'var(--bg-card)', borderTop: '1px solid var(--border)', padding: '48px 24px' }}>
+                <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '24px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}><div style={{ width: '36px', height: '36px', background: 'linear-gradient(135deg, var(--primary), var(--secondary))', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>{Icons.cpu}</div><span style={{ fontSize: '18px', fontWeight: '600' }}>PC Place</span></div>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>© 2024 PC Place. Маркетплейс компьютерных комплектующих.</p>
+                </div>
+            </footer>
+        );
+
+        // App
+        function App() {
+            const [user, setUser] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [page, setPage] = useState('home');
+            const [cart, setCart] = useState({ items: [], total_items: 0, total_price: 0 });
+            const [toast, setToast] = useState(null);
+            const showToast = (msg, type = 'info') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
+            useEffect(() => { (async () => { if (api.token) { try { const u = await api.get('/auth/me'); setUser(u); } catch { api.setToken(null); } } setLoading(false); })(); }, []);
+            useEffect(() => { if (user) loadCart(); }, [user]);
+            const loadCart = async () => { try { const c = await api.get('/cart'); setCart(c); } catch {} };
+            const login = async (identifier, pass) => { const { access_token } = await api.post('/auth/login', { identifier, password: pass }); api.setToken(access_token); const u = await api.get('/auth/me'); setUser(u); showToast('Добро пожаловать!', 'success'); setPage('home'); };
+            const register = async (email, username, pass) => { await api.post('/auth/register', { email, username, password: pass }); showToast('Регистрация успешна!', 'success'); setPage('login'); };
+            const logout = () => { api.setToken(null); setUser(null); setCart({ items: [], total_items: 0, total_price: 0 }); setPage('home'); showToast('Вы вышли', 'info'); };
+            const addToCart = async (itemId, qty = 1) => { if (!user) { setPage('login'); return; } try { await api.post('/cart/items', { item_id: itemId, quantity: qty }); await loadCart(); showToast('Добавлено в корзину', 'success'); } catch (e) { showToast(e.message, 'error'); } };
+            if (loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}><span className="loading-spinner" style={{ width: 48, height: 48 }} /></div>;
+            return (
+                <AuthCtx.Provider value={{ user, login, register, logout, showToast }}>
+                    <CartCtx.Provider value={{ cart, loadCart, addToCart }}>
+                        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+                            <Header page={page} setPage={setPage} />
+                            <main style={{ flex: 1 }}>
+                                {page === 'home' && <HomePage setPage={setPage} />}
+                                {page === 'catalog' && <CatalogPage />}
+                                {page === 'cart' && <CartPage setPage={setPage} />}
+                                {page === 'orders' && <OrdersPage />}
+                                {page === 'support' && <SupportChatPage />}
+                                {page === 'support-panel' && (user?.role === 'support' || user?.role === 'admin') && <SupportPanelPage />}
+                                {page === 'profile' && user && <ProfilePage />}
+                                {page === 'login' && <LoginPage setPage={setPage} />}
+                                {page === 'register' && <RegisterPage setPage={setPage} />}
+                            </main>
+                            <Footer />
+                        </div>
+                        {toast && <div style={{ position: 'fixed', bottom: '24px', right: '24px', padding: '18px 28px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderLeft: `4px solid ${toast.type === 'success' ? 'var(--success)' : toast.type === 'error' ? 'var(--danger)' : 'var(--primary)'}`, borderRadius: '12px', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', zIndex: 2000 }} className="fade-up"><p style={{ fontSize: '14px' }}>{toast.msg}</p></div>}
+                    </CartCtx.Provider>
+                </AuthCtx.Provider>
+            );
+        }
+
+        // Initialize React app when libraries are ready
+        (function initReact() {
+            if (typeof React === 'undefined' || typeof ReactDOM === 'undefined') {
+                setTimeout(initReact, 50);
+                return;
+            }
+            console.log('[Babel] Rendering app...');
+            try {
+                const root = document.getElementById('root');
+                if (ReactDOM.createRoot) {
+                    ReactDOM.createRoot(root).render(<App />);
+                } else {
+                    ReactDOM.render(<App />, root);
+                }
+                console.log('[Babel] App rendered');
+            } catch (error) {
+                console.error('[Babel] Error:', error);
+                const root = document.getElementById('root');
+                if (root) {
+                    root.innerHTML = '<div style="padding: 40px; text-align: center; color: #ef4444;"><h2>Ошибка</h2><p>' + error.message + '</p></div>';
+                }
+            }
+        })();
+    </script>
+</body>
+</html>
